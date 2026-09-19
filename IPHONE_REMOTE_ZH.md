@@ -1,0 +1,529 @@
+# noVNC iPhone 远程控制版中文说明
+
+本分支是在官方 **noVNC v1.7.0** 基础上，为“iPhone 远程控制 macOS”这一固定场景做的定制。
+
+当前分支：
+
+```text
+iphone-custom-v1.7
+```
+
+主要目标：
+
+- iPhone 上更自然地缩放、拖动、滚动 Mac 桌面
+- 增加 macOS Space / 全屏手势
+- 绕过 Apple Screen Sharing 与 noVNC 标准剪贴板兼容问题
+- 通过独立 tsnet gateway 提供 Tailscale HTTPS 入口
+- 保持改动尽量集中，方便以后从新的官方 noVNC tag 迁移
+
+---
+
+## 1. 整体架构
+
+```text
+iPhone Safari / Chrome
+        │
+        │ HTTPS / WSS
+        ▼
+Shadowrocket 内置 Tailscale
+        │
+        ▼
+novnc-gateway.<tailnet>.ts.net:443
+        │
+        │ tsnet + HTTPS reverse proxy
+        ▼
+http://127.0.0.1:6080
+        │
+        ▼
+noVNC / websockify
+        │
+        ▼
+localhost:5900
+        │
+        ▼
+macOS Screen Sharing
+```
+
+gateway 是单独的私有仓库：
+
+```text
+SodaNYC/novnc-tsnet-gateway
+```
+
+noVNC 本身不保存 Tailscale Auth Key、证书私钥或 tsnet 身份文件。
+
+**不要删除：**
+
+```text
+~/.novnc-tsnet-gateway
+```
+
+这是 gateway 的 tsnet 身份和状态目录。
+
+---
+
+## 2. 相比官方 noVNC v1.7.0 做了哪些改造
+
+### 2.1 双指捏合改为本地连续缩放
+
+官方 noVNC 的 pinch 手势会转换成远端 `Ctrl + 滚轮`。
+
+本分支改成：
+
+```text
+双指捏合
+→ 只缩放本地 noVNC Canvas / viewport
+→ 不向 Mac 发送 Ctrl+滚轮
+```
+
+特点：
+
+- 连续缩放，不是一级一级跳
+- 最小缩放到“完整桌面刚好适配屏幕”
+- 最大缩放为 1:1
+- 尽量保持双指中心对应的远端位置不漂移
+- 放大后自动允许拖动画面
+- iPhone 横竖屏切换、浏览器尺寸变化后会保留当前手动缩放比例
+
+相关实现集中在：
+
+```text
+core/rfb.js
+```
+
+---
+
+### 2.2 放大后的单指拖动画面加速
+
+新增：
+
+```js
+VIEWPORT_DRAG_SENS = 2.2
+```
+
+在 viewport 已放大的情况下，单指拖动画面时会将位移乘以 2.2，使 iPhone 上移动大桌面更省手。
+
+注意：
+
+- 没有进入 viewport drag 状态时，单指仍用于正常远端鼠标操作
+- 该参数是按当前 iPhone 实机手感调出来的，不建议无理由继续调大
+
+---
+
+### 2.3 双指上下滚动灵敏度提高
+
+官方：
+
+```js
+GESTURE_SCRLSENS = 50
+```
+
+当前：
+
+```js
+GESTURE_SCRLSENS = 2
+```
+
+因此双指上下滑动会更快地产生远端滚轮事件，适合手机触屏。
+
+---
+
+### 2.4 双指左右滑切换 macOS Space / 全屏桌面
+
+双指横向滑动不再发送水平滚轮，而是发送 macOS 快捷键：
+
+```text
+双指向左滑
+→ Control + Right Arrow
+→ 切换到右侧 Space / 全屏应用
+
+双指向右滑
+→ Control + Left Arrow
+→ 切换到左侧 Space / 全屏应用
+```
+
+当前识别参数：
+
+```js
+SPACE_SWIPE_THRESHOLD = 90
+SPACE_SWIPE_AXIS_RATIO = 1.4
+```
+
+含义：
+
+- 横向累计移动约 90px 后才触发
+- 必须明显更像横滑而不是竖滑
+- 每次双指手势最多触发一次 Space 切换
+
+这样可以减少和“双指上下滚动”的冲突。
+
+---
+
+### 2.5 三指轻点切换当前 Mac 应用全屏
+
+官方 noVNC 的三指轻点对应中键点击。
+
+本分支改为：
+
+```text
+三指轻点
+→ Control + Command + F
+→ 当前 macOS 应用进入 / 退出全屏
+```
+
+因此当前版本不再保留“三指轻点 = 中键”的行为。
+
+---
+
+### 2.6 替换 noVNC 原生剪贴板
+
+Apple Screen Sharing 在当前环境里无法可靠使用 noVNC 的标准 `ClientCutText` 剪贴板方案。
+
+因此本分支删除了 UI 层原来的：
+
+```text
+clipboardReceive
+clipboardSend
+clipboard event listener
+```
+
+改成自定义 **Paste to Mac**。
+
+流程：
+
+```text
+iPhone 文本
+→ noVNC Paste to Mac 面板
+→ HTTPS POST /api/paste
+→ tsnet gateway
+→ /usr/bin/pbcopy
+→ macOS pasteboard
+→ noVNC 自动发送 Command + V
+→ 粘贴到当前远端输入位置
+```
+
+Paste 成功后，手机页面中的 textarea 会立即清空，避免敏感剪贴板内容继续留在页面里。
+
+---
+
+### 2.7 临时调试 / Turbo Refresh 已全部移除
+
+开发过程中曾经加入过：
+
+- 顶部 debug overlay
+- ENC 编码显示
+- FBU fps 统计
+- Turbo Refresh / 高频 framebuffer 请求
+
+最终版本已经全部删除。
+
+原因是 Apple Screen Sharing 实际 framebuffer 更新速度有限，强制堆积 update request 反而会造成卡顿，并影响双指滚动响应。
+
+当前保持官方 noVNC 的 framebuffer 请求机制。
+
+---
+
+## 3. iPhone 手势操作表
+
+| iPhone 操作 | 远端行为 |
+| --- | --- |
+| 单指轻点 | Mac 左键点击 |
+| 两指轻点 | Mac 右键点击 |
+| 单指拖动 | 正常鼠标拖动；放大 viewport 后用于移动桌面 |
+| 双指上下滑 | Mac 滚轮上下滚动 |
+| 双指向左滑 | 切到右侧 Space / 全屏应用 |
+| 双指向右滑 | 切到左侧 Space / 全屏应用 |
+| 双指捏合 | noVNC 本地连续缩放 |
+| 三指轻点 | 当前 Mac 应用进入 / 退出全屏 |
+| 长按 | 保留 noVNC 原有长按行为 |
+
+### 双指横滑与上下滚动的区别
+
+开始双指移动后，noVNC 会先判断主要方向：
+
+```text
+明显横向
+→ 锁定为 Space swipe
+
+明显纵向
+→ 锁定为普通滚动
+```
+
+一次手势确定方向后，中途不会在“滚动”和“切 Space”之间反复切换。
+
+---
+
+## 4. Paste to Mac 怎么用
+
+1. 先在远端 Mac 上点击要输入文字的文本框，让它获得焦点。
+2. 打开 noVNC 左侧工具栏。
+3. 点击 **Paste to Mac**。
+4. 在 iPhone 的文本框中使用 iOS 原生“粘贴”。
+5. 点击 **Paste to Mac** 按钮。
+6. gateway 会把内容写入 Mac 系统剪贴板，然后 noVNC 自动发送 `Command + V`。
+
+支持：
+
+- 中文
+- 英文
+- 多行文本
+- 引号
+- shell 特殊字符
+- 代码片段
+
+gateway 不通过 shell 处理文本，所以类似：
+
+```text
+$HOME
+;
+&&
+|
+`command`
+```
+
+不会被当作 shell 命令执行。
+
+当前请求体限制为 **64 KiB**。
+
+---
+
+## 5. 启动方法
+
+### 5.1 macOS Screen Sharing
+
+先确保 macOS 的“屏幕共享”已经开启，并且本机 VNC 服务可通过：
+
+```text
+localhost:5900
+```
+
+访问。
+
+---
+
+### 5.2 启动 noVNC
+
+```bash
+cd ~/noVNC
+git switch iphone-custom-v1.7
+./utils/novnc_proxy --vnc localhost:5900 --listen 127.0.0.1:6080
+```
+
+这里故意监听：
+
+```text
+127.0.0.1:6080
+```
+
+不直接暴露到局域网。
+
+---
+
+### 5.3 启动 tsnet gateway
+
+```bash
+cd ~/novnc-tsnet-gateway
+go run .
+```
+
+或者以后使用编译好的二进制 / LaunchAgent。
+
+gateway 会：
+
+```text
+Tailscale HTTPS :443
+→ reverse proxy 到 127.0.0.1:6080
+```
+
+并提供：
+
+```text
+POST /api/paste
+```
+
+用于 Paste to Mac。
+
+---
+
+### 5.4 iPhone 访问
+
+必须使用完整的 Tailscale HTTPS 域名：
+
+```text
+https://novnc-gateway.<你的-tailnet>.ts.net/
+```
+
+不要使用：
+
+```text
+https://100.x.x.x/
+https://novnc-gateway/
+```
+
+因为 TLS 证书签发给完整的 `.ts.net` FQDN。
+
+---
+
+## 6. Tailscale / Shadowrocket 注意事项
+
+iPhone 和 iMac 都需要进入同一个 tailnet。
+
+Shadowrocket 需要确保 Tailscale 地址走内置 Tailscale tunnel，例如：
+
+```text
+DOMAIN-SUFFIX,ts.net,TAILSCALE
+IP-CIDR,100.64.0.0/10,TAILSCALE,no-resolve
+IP-CIDR6,fd7a:115c:a1e0::/48,TAILSCALE,no-resolve
+```
+
+不要让 `100.64.0.0/10` 被更高优先级的 DIRECT / excluded route 抢走。
+
+gateway 的 tsnet 机器是 tailnet 中一个独立设备：
+
+```text
+novnc-gateway
+```
+
+不要启用 Funnel。
+
+---
+
+## 7. 当前已知限制
+
+### iOS 后台挂起
+
+Safari / Chrome 切到后台后，iOS 可能暂停 WebSocket。
+
+因此重新回到 noVNC 时可能出现：
+
+- WebSocket 重连
+- VNC 重新认证
+- Mac 锁屏后再次输入密码
+
+这是 iOS 生命周期限制，前端无法完全消除。
+
+---
+
+### macOS VNC 动态画面帧率有限
+
+当前 Apple Screen Sharing 实测主要使用：
+
+```text
+Zlib
+ZRLE
+```
+
+快速滚动、大面积变化时，Apple VNC Server 本身可能只有较低的 framebuffer update 速度。
+
+因此：
+
+- 不做强制 30/60/120Hz 刷新
+- 不再使用 Turbo Refresh
+- JPEG quality 对当前 Apple VNC 路径基本不起作用
+- compression 参数目前也没有观察到明显收益
+
+---
+
+### 没有隐私幕
+
+远程操作的是 Mac 当前真实 console。
+
+远端操作可能让物理显示器亮起，本方案没有类似商业远控软件的 privacy curtain。
+
+---
+
+### 横向滚轮被 Space swipe 占用
+
+当前双指横向操作专门用于切换 macOS Space。
+
+如果以后有应用确实需要水平滚轮，需要重新设计手势映射。
+
+---
+
+## 8. 代码维护
+
+### noVNC fork
+
+远程：
+
+```text
+upstream = 官方 novnc/noVNC
+origin   = SodaNYC/noVNC
+```
+
+当前定制分支：
+
+```text
+iphone-custom-v1.7
+```
+
+开发原则：
+
+- 尽量一个功能一个 commit
+- 不要把临时 debug 长期留在正式分支
+- 不要盲目 `git add .`
+- 不要提交 Tailscale Auth Key、证书私钥、Shadowrocket 订阅或 tsnet state
+
+---
+
+### 将来升级 noVNC
+
+例如官方发布 v1.8.x 后，不建议直接把现有分支强行 merge 到新版。
+
+更适合：
+
+```bash
+git fetch upstream --tags
+git switch -c iphone-custom-v1.8 <新的官方tag>
+git cherry-pick <需要保留的自定义commit>
+```
+
+建议开启：
+
+```bash
+git config rerere.enabled true
+```
+
+方便后续重复解决类似冲突。
+
+---
+
+## 9. 当前自定义文件范围
+
+相对官方 v1.7.0，核心修改集中在：
+
+```text
+core/rfb.js
+app/ui.js
+vnc.html
+```
+
+另外新增本说明文件。
+
+其中：
+
+- `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势
+- `app/ui.js`：Paste to Mac 前端行为
+- `vnc.html`：Paste to Mac 面板
+
+gateway 的后端代码位于独立私有仓库，不放进 noVNC fork。
+
+---
+
+## 10. 建议的旅行前检查
+
+出发前用 **iPhone 关闭 Wi-Fi，仅使用 5G** 做一次完整检查：
+
+1. 能打开完整 `.ts.net` HTTPS 地址
+2. 能连接 VNC
+3. 单指点击正常
+4. pinch zoom 正常
+5. 放大后单指拖动画面正常
+6. 双指上下滚动正常
+7. 双指左右切 Space 正常
+8. 三指轻点进入 / 退出全屏正常
+9. Paste to Mac 中文、多行文字正常
+10. iPhone 锁屏后重新回来能够恢复连接
+11. Chrome Remote Desktop 仍可作为备用通道
+
+通过后，再把当前 commit 打 tag 作为旅行冻结版本。
