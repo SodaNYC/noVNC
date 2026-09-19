@@ -181,12 +181,21 @@
             <div class="noVNC_vcenter">
             <div id="noVNC_clipboard" class="noVNC_panel">
                 <div class="noVNC_heading">
-                    <img alt="" src="app/images/clipboard.svg"> Clipboard
+                    <img alt="" src="app/images/clipboard.svg"> Paste to Mac
                 </div>
                 <p class="noVNC_subheading">
-                    Edit clipboard content in the textarea below.
+                    Paste iPhone text below, then send it directly to the Mac.
                 </p>
-                <textarea id="noVNC_clipboard_text" rows=5></textarea>
+                <textarea
+                    id="noVNC_clipboard_text"
+                    rows="5"
+                    placeholder="Paste iPhone clipboard here..."></textarea>
+                <div class="button_row">
+                    <input
+                        id="noVNC_paste_to_mac_button"
+                        type="button"
+                        value="Paste to Mac">
+                </div>
             </div>
             </div>
 

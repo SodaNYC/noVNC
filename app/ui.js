@@ -338,8 +338,8 @@ const UI = {
     addClipboardHandlers() {
         document.getElementById("noVNC_clipboard_button")
             .addEventListener('click', UI.toggleClipboardPanel);
-        document.getElementById("noVNC_clipboard_text")
-            .addEventListener('change', UI.clipboardSend);
+        document.getElementById("noVNC_paste_to_mac_button")
+            .addEventListener('click', UI.pasteToMac);
     },
 
     // Add a call to save settings when the element changes,
@@ -994,17 +994,79 @@ const UI = {
         }
     },
 
-    clipboardReceive(e) {
-        Log.Debug(">> UI.clipboardReceive: " + e.detail.text.substr(0, 40) + "...");
-        document.getElementById('noVNC_clipboard_text').value = e.detail.text;
-        Log.Debug("<< UI.clipboardReceive");
-    },
+    async pasteToMac() {
+        if (!UI.connected || !UI.rfb) {
+            UI.showStatus("Not connected to Mac", "error");
+            return;
+        }
 
-    clipboardSend() {
-        const text = document.getElementById('noVNC_clipboard_text').value;
-        Log.Debug(">> UI.clipboardSend: " + text.substr(0, 40) + "...");
-        UI.rfb.clipboardPasteFrom(text);
-        Log.Debug("<< UI.clipboardSend");
+        const textarea =
+            document.getElementById('noVNC_clipboard_text');
+
+        const button =
+            document.getElementById('noVNC_paste_to_mac_button');
+
+        const text = textarea.value;
+
+        if (!text) {
+            UI.showStatus("Clipboard text is empty", "warning");
+            return;
+        }
+
+        button.disabled = true;
+
+        try {
+            const response = await fetch('/api/paste', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                    'X-noVNC-Paste': '1',
+                },
+                body: text,
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                const message = await response.text();
+                throw new Error(
+                    `${response.status}: ${message}`
+                );
+            }
+
+            UI.closeClipboardPanel();
+
+            UI.rfb.focus();
+
+            UI.rfb.sendKey(
+                KeyTable.XK_Super_L,
+                "MetaLeft",
+                true
+            );
+
+            try {
+                UI.rfb.sendKey(
+                    keysyms.lookup('v'.charCodeAt(0)),
+                    "KeyV"
+                );
+            } finally {
+                UI.rfb.sendKey(
+                    KeyTable.XK_Super_L,
+                    "MetaLeft",
+                    false
+                );
+            }
+
+            UI.showStatus("Pasted to Mac", "normal");
+
+        } catch (err) {
+            Log.Error("Paste to Mac failed: " + err);
+            UI.showStatus(
+                "Paste to Mac failed: " + err.message,
+                "error"
+            );
+        } finally {
+            button.disabled = false;
+        }
     },
 
 /* ------^-------
@@ -1092,7 +1154,7 @@ const UI = {
         UI.rfb.addEventListener("securityfailure", UI.securityFailed);
         UI.rfb.addEventListener("clippingviewport", UI.updateViewDrag);
         UI.rfb.addEventListener("capabilities", UI.updatePowerButton);
-        UI.rfb.addEventListener("clipboard", UI.clipboardReceive);
+
         UI.rfb.addEventListener("bell", UI.bell);
         UI.rfb.addEventListener("desktopname", UI.updateDesktopName);
         UI.rfb.clipViewport = UI.getSetting('view_clip');
