@@ -399,7 +399,7 @@ export default class RFB extends EventTargetMixin {
         }
 
         this._qualityLevel = qualityLevel;
-        
+
         if (this._rfbConnectionState === 'connected') {
             this._sendEncodings();
         }
@@ -1560,8 +1560,10 @@ export default class RFB extends EventTargetMixin {
                     case 'onetap':
                     case 'twotap':
                     case 'threetap':
-                    case 'pinch':
                     case 'twodrag':
+                        break;
+                    case 'pinch':
+                        this._gestureZoomStartMagnitude = 0;
                         break;
                     case 'drag':
                         if (this.dragViewport) {

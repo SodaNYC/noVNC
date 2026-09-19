@@ -1033,6 +1033,8 @@ const UI = {
                 );
             }
 
+            // Do not keep potentially sensitive clipboard text in the UI.
+            textarea.value = "";
             UI.closeClipboardPanel();
 
             UI.rfb.focus();
