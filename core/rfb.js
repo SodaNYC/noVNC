@@ -23,7 +23,7 @@ import Cursor from "./util/cursor.js";
 import Websock from "./websock.js";
 import KeyTable from "./input/keysym.js";
 import XtScancode from "./input/xtscancodes.js";
-import { encodings } from "./encodings.js";
+import { encodings, encodingName } from "./encodings.js";
 import RSAAESAuthenticationState from "./ra2.js";
 import legacyCrypto from "./crypto/crypto.js";
 
@@ -2621,6 +2621,13 @@ export default class RFB extends EventTargetMixin {
     }
 
     _framebufferUpdate() {
+        console.log(
+            "[noVNC ENCODING]",
+            this._FBU.encoding,
+            encodingName(this._FBU.encoding),
+            "Q=" + this._qualityLevel,
+            "C=" + this._compressionLevel
+        );
         if (this._FBU.rects === 0) {
             if (this._sock.rQwait("FBU header", 3, 1)) { return false; }
             this._sock.rQskipBytes(1);  // Padding
@@ -3079,10 +3086,12 @@ export default class RFB extends EventTargetMixin {
 
     // ===== DEBUG =====
     showDebugState(rfb, extra = "") {
+        const enc = rfb._FBU ? encodingName(rfb._FBU.encoding) : "-";
         const text =
             `SCRL=${GESTURE_SCRLSENS} | ` +
             `Q=${rfb._qualityLevel} | ` +
-            `C=${rfb._compressionLevel}` +
+            `C=${rfb._compressionLevel} | ` +
+            `ENC=${enc}` +
             (extra ? ` | ${extra}` : "");
 
         console.log("[noVNC DEBUG]", text);
