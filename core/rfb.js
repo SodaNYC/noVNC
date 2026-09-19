@@ -52,6 +52,8 @@ const WHEEL_LINE_HEIGHT = 19; // Assumed pixels for one line step
 // Gesture thresholds
 const GESTURE_SCRLSENS = 2;
 const VIEWPORT_DRAG_SENS = 2.2;
+const SPACE_SWIPE_THRESHOLD = 90;
+const SPACE_SWIPE_AXIS_RATIO = 1.4;
 const DOUBLE_TAP_TIMEOUT = 1000;
 const DOUBLE_TAP_THRESHOLD = 50;
 
@@ -200,6 +202,8 @@ export default class RFB extends EventTargetMixin {
         this._gestureFirstDoubleTapEv = null;
         this._gestureLastMagnitudeX = 0;
         this._gestureLastMagnitudeY = 0;
+        this._twoDragAxis = null;
+        this._spaceSwipeTriggered = false;
 
         // Local pinch zoom state
         this._gestureZoomStartMagnitude = 0;
@@ -1333,6 +1337,31 @@ export default class RFB extends EventTargetMixin {
         this._handleMouseButton(pos.x, pos.y, 0x0);
     }
 
+    _sendMacSpaceSwitch(direction) {
+        const key = direction < 0 ?
+            { keysym: KeyTable.XK_Right, code: "ArrowRight" } :
+            { keysym: KeyTable.XK_Left, code: "ArrowLeft" };
+
+        this.sendKey(KeyTable.XK_Control_L, "ControlLeft", true);
+        try {
+            this.sendKey(key.keysym, key.code);
+        } finally {
+            this.sendKey(KeyTable.XK_Control_L, "ControlLeft", false);
+        }
+    }
+
+    _sendMacFullscreenToggle() {
+        this.sendKey(KeyTable.XK_Control_L, "ControlLeft", true);
+        this.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
+
+        try {
+            this.sendKey(0x66, "KeyF"); // 'f'
+        } finally {
+            this.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
+            this.sendKey(KeyTable.XK_Control_L, "ControlLeft", false);
+        }
+    }
+
     _localZoomFitScale() {
         const size = this._screenSize();
 
@@ -1426,7 +1455,7 @@ export default class RFB extends EventTargetMixin {
                         this._handleTapEvent(ev, 0x4);
                         break;
                     case 'threetap':
-                        this._handleTapEvent(ev, 0x2);
+                        this._sendMacFullscreenToggle();
                         break;
                     case 'drag':
                         if (this.dragViewport) {
@@ -1453,6 +1482,8 @@ export default class RFB extends EventTargetMixin {
                     case 'twodrag':
                         this._gestureLastMagnitudeX = ev.detail.magnitudeX;
                         this._gestureLastMagnitudeY = ev.detail.magnitudeY;
+                        this._twoDragAxis = null;
+                        this._spaceSwipeTriggered = false;
 
                         this._fakeMouseMove(ev, pos.x, pos.y);
                         break;
@@ -1503,11 +1534,36 @@ export default class RFB extends EventTargetMixin {
                             this._fakeMouseMove(ev, pos.x, pos.y);
                         }
                         break;
-                    case 'twodrag':
-                        // Always scroll in the same position.
-                        // We don't know if the mouse was moved so we need to move it
-                        // every update.
+                    case 'twodrag': {
+                        // Two-finger vertical movement keeps the original
+                        // remote scroll behavior. A clearly horizontal gesture
+                        // switches macOS Spaces once per gesture.
                         this._fakeMouseMove(ev, pos.x, pos.y);
+
+                        const moveX = ev.detail.magnitudeX;
+                        const moveY = ev.detail.magnitudeY;
+                        const absX = Math.abs(moveX);
+                        const absY = Math.abs(moveY);
+
+                        if (this._twoDragAxis === null) {
+                            if (absX >= absY * SPACE_SWIPE_AXIS_RATIO) {
+                                this._twoDragAxis = 'horizontal';
+                            } else if (absY >= absX * SPACE_SWIPE_AXIS_RATIO) {
+                                this._twoDragAxis = 'vertical';
+                            } else {
+                                break;
+                            }
+                        }
+
+                        if (this._twoDragAxis === 'horizontal') {
+                            if (!this._spaceSwipeTriggered &&
+                                absX >= SPACE_SWIPE_THRESHOLD) {
+                                this._spaceSwipeTriggered = true;
+                                this._sendMacSpaceSwitch(moveX);
+                            }
+                            break;
+                        }
+
                         while ((ev.detail.magnitudeY - this._gestureLastMagnitudeY) > GESTURE_SCRLSENS) {
                             this._handleMouseButton(pos.x, pos.y, 0x8);
                             this._handleMouseButton(pos.x, pos.y, 0x0);
@@ -1518,17 +1574,8 @@ export default class RFB extends EventTargetMixin {
                             this._handleMouseButton(pos.x, pos.y, 0x0);
                             this._gestureLastMagnitudeY -= GESTURE_SCRLSENS;
                         }
-                        while ((ev.detail.magnitudeX - this._gestureLastMagnitudeX) > GESTURE_SCRLSENS) {
-                            this._handleMouseButton(pos.x, pos.y, 0x20);
-                            this._handleMouseButton(pos.x, pos.y, 0x0);
-                            this._gestureLastMagnitudeX += GESTURE_SCRLSENS;
-                        }
-                        while ((ev.detail.magnitudeX - this._gestureLastMagnitudeX) < -GESTURE_SCRLSENS) {
-                            this._handleMouseButton(pos.x, pos.y, 0x40);
-                            this._handleMouseButton(pos.x, pos.y, 0x0);
-                            this._gestureLastMagnitudeX -= GESTURE_SCRLSENS;
-                        }
                         break;
+                    }
                     case 'pinch':
                         magnitude = Math.hypot(
                             ev.detail.magnitudeX,
@@ -1560,7 +1607,10 @@ export default class RFB extends EventTargetMixin {
                     case 'onetap':
                     case 'twotap':
                     case 'threetap':
+                        break;
                     case 'twodrag':
+                        this._twoDragAxis = null;
+                        this._spaceSwipeTriggered = false;
                         break;
                     case 'pinch':
                         this._gestureZoomStartMagnitude = 0;
