@@ -50,7 +50,6 @@ const WHEEL_STEP = 50; // Pixels needed for one step
 const WHEEL_LINE_HEIGHT = 19; // Assumed pixels for one line step
 
 // Gesture thresholds
-const GESTURE_ZOOMSENS = 75;
 const GESTURE_SCRLSENS = 4;
 const DOUBLE_TAP_TIMEOUT = 1000;
 const DOUBLE_TAP_THRESHOLD = 50;
@@ -201,6 +200,16 @@ export default class RFB extends EventTargetMixin {
         this._gestureLastMagnitudeX = 0;
         this._gestureLastMagnitudeY = 0;
 
+        // Local pinch zoom state
+        this._gestureZoomStartMagnitude = 0;
+        this._gestureZoomStartScale = 1.0;
+        this._gestureZoomAnchorX = 0;
+        this._gestureZoomAnchorY = 0;
+
+        // null = normal noVNC scaling mode
+        // number = custom local pinch zoom
+        this._manualZoomScale = null;
+
         // Bound event handlers
         this._eventHandlers = {
             focusCanvas: this._focusCanvas.bind(this),
@@ -345,6 +354,8 @@ export default class RFB extends EventTargetMixin {
 
     get scaleViewport() { return this._scaleViewport; }
     set scaleViewport(scale) {
+        this._manualZoomScale = null;
+
         this._scaleViewport = scale;
         // Scaling trumps clipping, so we may need to adjust
         // clipping when enabling or disabling scaling
@@ -732,8 +743,13 @@ export default class RFB extends EventTargetMixin {
         // If the window resized then our screen element might have
         // as well. Update the viewport dimensions.
         window.requestAnimationFrame(() => {
-            this._updateClip();
-            this._updateScale();
+            if (this._manualZoomScale !== null) {
+                this._applyLocalZoom(this._manualZoomScale);
+            } else {
+                this._updateClip();
+                this._updateScale();
+            }
+
             this._saveExpectedClientSize();
         });
 
@@ -1319,6 +1335,84 @@ export default class RFB extends EventTargetMixin {
         this._handleMouseButton(pos.x, pos.y, 0x0);
     }
 
+    _localZoomFitScale() {
+        const size = this._screenSize();
+
+        if (size.w <= 0 || size.h <= 0 ||
+            this._display.width <= 0 || this._display.height <= 0) {
+            return 1.0;
+        }
+
+        return Math.min(
+            1.0,
+            size.w / this._display.width,
+            size.h / this._display.height
+        );
+    }
+
+    _applyLocalZoom(scale,
+                    anchorClientX = null,
+                    anchorClientY = null,
+                    anchorRemoteX = null,
+                    anchorRemoteY = null) {
+
+        const size = this._screenSize();
+        const fitScale = this._localZoomFitScale();
+
+        scale = Math.max(fitScale, Math.min(1.0, scale));
+
+        this._manualZoomScale = scale;
+
+        this._scaleViewport = false;
+
+        this._clipViewport = true;
+        this._display.clipViewport = true;
+
+        const viewportWidth = Math.ceil(size.w / scale);
+        const viewportHeight = Math.ceil(size.h / scale);
+
+        this._display.viewportChangeSize(
+            viewportWidth,
+            viewportHeight
+        );
+
+        this._display.scale = scale;
+
+        if (anchorClientX !== null &&
+            anchorClientY !== null &&
+            anchorRemoteX !== null &&
+            anchorRemoteY !== null) {
+
+            const newPos = clientToElement(
+                anchorClientX,
+                anchorClientY,
+                this._canvas
+            );
+
+            const currentX = this._display.absX(0);
+            const currentY = this._display.absY(0);
+
+            const wantedX =
+                anchorRemoteX - newPos.x / scale;
+            const wantedY =
+                anchorRemoteY - newPos.y / scale;
+
+            this._display.viewportChangePos(
+                wantedX - currentX,
+                wantedY - currentY
+            );
+        }
+
+        const clipped =
+            this._display.width > viewportWidth ||
+            this._display.height > viewportHeight;
+
+        this.dragViewport = clipped;
+
+        this._setClippingViewport(clipped);
+        this._fixScrollbars();
+    }
+
     _handleGesture(ev) {
         let magnitude;
 
@@ -1367,9 +1461,21 @@ export default class RFB extends EventTargetMixin {
                         this._fakeMouseMove(ev, pos.x, pos.y);
                         break;
                     case 'pinch':
-                        this._gestureLastMagnitudeX = Math.hypot(ev.detail.magnitudeX,
-                                                                 ev.detail.magnitudeY);
-                        this._fakeMouseMove(ev, pos.x, pos.y);
+                        this._gestureZoomStartMagnitude =
+                            Math.hypot(
+                                ev.detail.magnitudeX,
+                                ev.detail.magnitudeY
+                            );
+
+                        this._gestureZoomStartScale =
+                            this._display.scale;
+
+                        this._gestureZoomAnchorX =
+                            this._display.absX(pos.x);
+
+                        this._gestureZoomAnchorY =
+                            this._display.absY(pos.y);
+
                         break;
                 }
                 break;
@@ -1425,25 +1531,27 @@ export default class RFB extends EventTargetMixin {
                         }
                         break;
                     case 'pinch':
-                        // Always scroll in the same position.
-                        // We don't know if the mouse was moved so we need to move it
-                        // every update.
-                        this._fakeMouseMove(ev, pos.x, pos.y);
-                        magnitude = Math.hypot(ev.detail.magnitudeX, ev.detail.magnitudeY);
-                        if (Math.abs(magnitude - this._gestureLastMagnitudeX) > GESTURE_ZOOMSENS) {
-                            this._handleKeyEvent(KeyTable.XK_Control_L, "ControlLeft", true);
-                            while ((magnitude - this._gestureLastMagnitudeX) > GESTURE_ZOOMSENS) {
-                                this._handleMouseButton(pos.x, pos.y, 0x8);
-                                this._handleMouseButton(pos.x, pos.y, 0x0);
-                                this._gestureLastMagnitudeX += GESTURE_ZOOMSENS;
-                            }
-                            while ((magnitude -  this._gestureLastMagnitudeX) < -GESTURE_ZOOMSENS) {
-                                this._handleMouseButton(pos.x, pos.y, 0x10);
-                                this._handleMouseButton(pos.x, pos.y, 0x0);
-                                this._gestureLastMagnitudeX -= GESTURE_ZOOMSENS;
-                            }
+                        magnitude = Math.hypot(
+                            ev.detail.magnitudeX,
+                            ev.detail.magnitudeY
+                        );
+
+                        if (this._gestureZoomStartMagnitude > 0) {
+                            const ratio =
+                                magnitude / this._gestureZoomStartMagnitude;
+
+                            const newScale =
+                                this._gestureZoomStartScale * ratio;
+
+                            this._applyLocalZoom(
+                                newScale,
+                                ev.detail.clientX,
+                                ev.detail.clientY,
+                                this._gestureZoomAnchorX,
+                                this._gestureZoomAnchorY
+                            );
                         }
-                        this._handleKeyEvent(KeyTable.XK_Control_L, "ControlLeft", false);
+
                         break;
                 }
                 break;
