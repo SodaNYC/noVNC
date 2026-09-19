@@ -23,7 +23,7 @@ import Cursor from "./util/cursor.js";
 import Websock from "./websock.js";
 import KeyTable from "./input/keysym.js";
 import XtScancode from "./input/xtscancodes.js";
-import { encodings, encodingName } from "./encodings.js";
+import { encodings } from "./encodings.js";
 import RSAAESAuthenticationState from "./ra2.js";
 import legacyCrypto from "./crypto/crypto.js";
 
@@ -313,7 +313,6 @@ export default class RFB extends EventTargetMixin {
 
         this._qualityLevel = 6;
         this._compressionLevel = 2;
-        this.showDebugState(this, "RFB created");
     }
 
     // ===== PROPERTIES =====
@@ -400,7 +399,6 @@ export default class RFB extends EventTargetMixin {
         }
 
         this._qualityLevel = qualityLevel;
-        this.showDebugState(this, "quality changed");
         
         if (this._rfbConnectionState === 'connected') {
             this._sendEncodings();
@@ -421,7 +419,6 @@ export default class RFB extends EventTargetMixin {
         }
 
         this._compressionLevel = compressionLevel;
-        this.showDebugState(this, "compression changed");
 
         if (this._rfbConnectionState === 'connected') {
             this._sendEncodings();
@@ -1456,8 +1453,6 @@ export default class RFB extends EventTargetMixin {
                     case 'twodrag':
                         this._gestureLastMagnitudeX = ev.detail.magnitudeX;
                         this._gestureLastMagnitudeY = ev.detail.magnitudeY;
-
-                        this.showDebugState(this, "two-finger scroll");
 
                         this._fakeMouseMove(ev, pos.x, pos.y);
                         break;
@@ -2733,13 +2728,6 @@ export default class RFB extends EventTargetMixin {
     }
 
     _framebufferUpdate() {
-        console.log(
-            "[noVNC ENCODING]",
-            this._FBU.encoding,
-            encodingName(this._FBU.encoding),
-            "Q=" + this._qualityLevel,
-            "C=" + this._compressionLevel
-        );
         if (this._FBU.rects === 0) {
             if (this._sock.rQwait("FBU header", 3, 1)) { return false; }
             this._sock.rQskipBytes(1);  // Padding
@@ -3196,42 +3184,6 @@ export default class RFB extends EventTargetMixin {
         return legacyCrypto.encrypt({ name: "DES-ECB" }, key, challenge);
     }
 
-    // ===== DEBUG =====
-    showDebugState(rfb, extra = "") {
-        const enc = rfb._FBU ? encodingName(rfb._FBU.encoding) : "-";
-        const text =
-            `SCRL=${GESTURE_SCRLSENS} | ` +
-            `Q=${rfb._qualityLevel} | ` +
-            `C=${rfb._compressionLevel} | ` +
-            `ENC=${enc}` +
-            (extra ? ` | ${extra}` : "");
-
-        console.log("[noVNC DEBUG]", text);
-
-        let el = document.getElementById("novnc-debug-state");
-
-        if (!el) {
-            el = document.createElement("div");
-            el.id = "novnc-debug-state";
-
-            Object.assign(el.style, {
-                position: "fixed",
-                top: "8px",
-                right: "8px",
-                zIndex: "999999",
-                padding: "6px 9px",
-                background: "rgba(0,0,0,0.75)",
-                color: "#00ff88",
-                font: "12px monospace",
-                borderRadius: "6px",
-                pointerEvents: "none",
-            });
-
-            document.body.appendChild(el);
-        }
-
-        el.textContent = text;
-    }
 }
 
 // Class Methods
