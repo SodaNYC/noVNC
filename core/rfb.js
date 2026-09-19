@@ -51,7 +51,7 @@ const WHEEL_LINE_HEIGHT = 19; // Assumed pixels for one line step
 
 // Gesture thresholds
 const GESTURE_ZOOMSENS = 75;
-const GESTURE_SCRLSENS = 50;
+const GESTURE_SCRLSENS = 4;
 const DOUBLE_TAP_TIMEOUT = 1000;
 const DOUBLE_TAP_THRESHOLD = 50;
 
@@ -303,6 +303,7 @@ export default class RFB extends EventTargetMixin {
 
         this._qualityLevel = 6;
         this._compressionLevel = 2;
+        this.showDebugState(this, "RFB created");
     }
 
     // ===== PROPERTIES =====
@@ -387,7 +388,8 @@ export default class RFB extends EventTargetMixin {
         }
 
         this._qualityLevel = qualityLevel;
-
+        this.showDebugState(this, "quality changed");
+        
         if (this._rfbConnectionState === 'connected') {
             this._sendEncodings();
         }
@@ -407,6 +409,7 @@ export default class RFB extends EventTargetMixin {
         }
 
         this._compressionLevel = compressionLevel;
+        this.showDebugState(this, "compression changed");
 
         if (this._rfbConnectionState === 'connected') {
             this._sendEncodings();
@@ -1358,6 +1361,9 @@ export default class RFB extends EventTargetMixin {
                     case 'twodrag':
                         this._gestureLastMagnitudeX = ev.detail.magnitudeX;
                         this._gestureLastMagnitudeY = ev.detail.magnitudeY;
+
+                        this.showDebugState(this, "two-finger scroll");
+
                         this._fakeMouseMove(ev, pos.x, pos.y);
                         break;
                     case 'pinch':
@@ -3069,6 +3075,41 @@ export default class RFB extends EventTargetMixin {
         const key = legacyCrypto.importKey(
             "raw", passwordChars, { name: "DES-ECB" }, false, ["encrypt"]);
         return legacyCrypto.encrypt({ name: "DES-ECB" }, key, challenge);
+    }
+
+    // ===== DEBUG =====
+    showDebugState(rfb, extra = "") {
+        const text =
+            `SCRL=${GESTURE_SCRLSENS} | ` +
+            `Q=${rfb._qualityLevel} | ` +
+            `C=${rfb._compressionLevel}` +
+            (extra ? ` | ${extra}` : "");
+
+        console.log("[noVNC DEBUG]", text);
+
+        let el = document.getElementById("novnc-debug-state");
+
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "novnc-debug-state";
+
+            Object.assign(el.style, {
+                position: "fixed",
+                top: "8px",
+                right: "8px",
+                zIndex: "999999",
+                padding: "6px 9px",
+                background: "rgba(0,0,0,0.75)",
+                color: "#00ff88",
+                font: "12px monospace",
+                borderRadius: "6px",
+                pointerEvents: "none",
+            });
+
+            document.body.appendChild(el);
+        }
+
+        el.textContent = text;
     }
 }
 
