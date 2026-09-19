@@ -50,7 +50,7 @@ const WHEEL_STEP = 50; // Pixels needed for one step
 const WHEEL_LINE_HEIGHT = 19; // Assumed pixels for one line step
 
 // Gesture thresholds
-const GESTURE_SCRLSENS = 4;
+const GESTURE_SCRLSENS = 2;
 const VIEWPORT_DRAG_SENS = 2.2;
 const DOUBLE_TAP_TIMEOUT = 1000;
 const DOUBLE_TAP_THRESHOLD = 50;
