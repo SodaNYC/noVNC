@@ -44,6 +44,7 @@ const UI = {
 
     inhibitReconnect: true,
     reconnectCallback: null,
+    reconnectUsername: null,
     reconnectPassword: null,
 
     async start(options={}) {
@@ -188,7 +189,7 @@ const UI = {
         UI.initSetting('path', 'websockify');
         UI.initSetting('repeaterID', '');
         UI.initSetting('reconnect', false);
-        UI.initSetting('reconnect_delay', 5000);
+        UI.initSetting('reconnect_delay', 3000);
     },
     // Adds a link to the label elements on the corresponding input elements
     setupSettingLabels() {
@@ -1087,7 +1088,7 @@ const UI = {
             .classList.remove("noVNC_open");
     },
 
-    connect(event, password) {
+    connect(event, password, username) {
 
         // Ignore when rfb already exists
         if (typeof UI.rfb !== 'undefined') {
@@ -1105,6 +1106,17 @@ const UI = {
 
         if (password === null) {
             password = undefined;
+        }
+        if (username === null) {
+            username = undefined;
+        }
+
+        const credentials = {};
+        if (typeof username !== 'undefined') {
+            credentials.username = username;
+        }
+        if (typeof password !== 'undefined') {
+            credentials.password = password;
         }
 
         UI.hideStatus();
@@ -1141,7 +1153,7 @@ const UI = {
                              url.href,
                              { shared: UI.getSetting('shared'),
                                repeaterID: UI.getSetting('repeaterID'),
-                               credentials: { password: password } });
+                               credentials: credentials });
         } catch (exc) {
             Log.Error("Failed to connect to server: " + exc);
             UI.updateVisualState('disconnected');
@@ -1190,7 +1202,7 @@ const UI = {
             return;
         }
 
-        UI.connect(null, UI.reconnectPassword);
+        UI.connect(null, UI.reconnectPassword, UI.reconnectUsername);
     },
 
     cancelReconnect() {
@@ -1373,6 +1385,7 @@ const UI = {
         inputElemPassword.value = "";
 
         UI.rfb.sendCredentials({ username: username, password: password });
+        UI.reconnectUsername = username;
         UI.reconnectPassword = password;
         document.getElementById('noVNC_credentials_dlg')
             .classList.remove('noVNC_open');

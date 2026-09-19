@@ -380,17 +380,20 @@
 
     <!-- Password dialog -->
     <div class="noVNC_center noVNC_connect_layer">
-    <div id="noVNC_credentials_dlg" class="noVNC_panel"><form>
+    <div id="noVNC_credentials_dlg" class="noVNC_panel"><form autocomplete="on">
         <div class="noVNC_heading">
             Credentials
         </div>
         <div id="noVNC_username_block">
             <label for="noVNC_username_input">Username:</label>
-            <input id="noVNC_username_input">
+            <input id="noVNC_username_input" type="text"
+                name="username" autocomplete="username"
+                autocapitalize="none" spellcheck="false">
         </div>
         <div id="noVNC_password_block">
             <label for="noVNC_password_input">Password:</label>
-            <input id="noVNC_password_input" type="password">
+            <input id="noVNC_password_input" type="password"
+                name="password" autocomplete="current-password">
         </div>
         <div class="button_row">
             <input id="noVNC_credentials_button" type="submit" value="Send credentials">

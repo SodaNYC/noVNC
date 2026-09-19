@@ -12,6 +12,8 @@ iphone-custom-v1.7
 
 - iPhone 上更自然地缩放、拖动、滚动 Mac 桌面
 - 增加 macOS Space / 全屏手势
+- 断线后在当前页面生命周期内自动复用用户名和密码重新认证
+- 优化 iPhone Chrome / iOS 密码自动填充和 Face ID 使用
 - 绕过 Apple Screen Sharing 与 noVNC 标准剪贴板兼容问题
 - 通过独立 tsnet gateway 提供 Tailscale HTTPS 入口
 - 保持改动尽量集中，方便以后从新的官方 noVNC tag 迁移
@@ -221,6 +223,78 @@ Paste 成功后，手机页面中的 textarea 会立即清空，避免敏感剪�
 
 当前保持官方 noVNC 的 framebuffer 请求机制。
 
+
+---
+
+### 2.8 自动重连时复用当前页面内存中的登录凭据
+
+Apple Screen Sharing 使用的 ARD 认证要求同时提供：
+
+```text
+username
+password
+```
+
+官方 noVNC 每建立一个新的 RFB 连接都需要重新完成认证。此前本分支只缓存了 password，导致自动重连时缺少 username，服务器再次弹出 Credentials 对话框。
+
+当前改为：
+
+```text
+第一次手动登录成功
+→ username + password 保存到当前网页的 JavaScript 内存
+→ WebSocket / RFB 意外断开
+→ 等待 reconnect delay
+→ 创建新的 RFB 连接
+→ 自动重新提交 username + password
+```
+
+这些凭据只存在于当前页面内存中：
+
+- 不写入 Git 仓库
+- 不写入 gateway
+- 不写入 URL
+- 本定制代码不会主动写入 localStorage
+
+如果 iOS 杀掉页面、手动刷新页面、关闭 Chrome/Safari 或手机重启，内存凭据就会消失，下一次仍需重新认证一次。
+
+这时建议通过 iPhone 的密码管理器 + Face ID 自动填充，而不是把 Mac 密码硬编码进 noVNC。
+
+当前默认自动重连延迟：
+
+```text
+3000 ms
+```
+
+相比 1000 ms，它给蜂窝网络、Shadowrocket 和 Tailscale 更多恢复时间；相比原版默认 5000 ms，回到远控页面后的等待感更低。
+
+---
+
+### 2.9 登录框针对 iPhone 密码自动填充优化
+
+Credentials 表单现在使用标准浏览器字段提示：
+
+```html
+autocomplete="username"
+autocomplete="current-password"
+```
+
+因此 Chrome / iOS 密码自动填充更容易识别这是用户名和密码登录表单。
+
+推荐体验：
+
+```text
+页面首次打开或被 iOS 重载
+→ Chrome / iOS 密码自动填充
+→ Face ID
+→ 登录一次
+
+之后只是 WebSocket / RFB 断线
+→ noVNC 自动重新认证
+→ 不再人工输入用户名密码
+```
+
+注意：是否弹出 Face ID、使用 Google Password Manager 还是 Apple 密码，取决于 iPhone 自己的“自动填充与密码”设置。
+
 ---
 
 ## 3. iPhone 手势操作表
@@ -394,11 +468,11 @@ novnc-gateway
 
 Safari / Chrome 切到后台后，iOS 可能暂停 WebSocket。
 
-因此重新回到 noVNC 时可能出现：
+如果页面本身仍在内存中，本分支会在断线后自动重新建立 RFB 连接，并复用当前页面内存中的 username + password 完成 ARD 认证，通常不再需要人工输入。
 
-- WebSocket 重连
-- VNC 重新认证
-- Mac 锁屏后再次输入密码
+如果 iOS 已经把整个网页进程杀掉、页面被刷新或浏览器被关闭，则内存凭据会丢失，需要再次通过密码管理器 / Face ID 填一次。
+
+另外，如果 Mac 本身进入锁屏，远程桌面中仍可能需要解锁 macOS；这和 VNC 连接认证是两件事。
 
 这是 iOS 生命周期限制，前端无法完全消除。
 
@@ -515,15 +589,18 @@ gateway 的后端代码位于独立私有仓库，不放进 noVNC fork。
 出发前用 **iPhone 关闭 Wi-Fi，仅使用 5G** 做一次完整检查：
 
 1. 能打开完整 `.ts.net` HTTPS 地址
-2. 能连接 VNC
-3. 单指点击正常
-4. pinch zoom 正常
-5. 放大后单指拖动画面正常
-6. 双指上下滚动正常
-7. 双指左右切 Space 正常
-8. 三指轻点进入 / 退出全屏正常
-9. Paste to Mac 中文、多行文字正常
-10. iPhone 锁屏后重新回来能够恢复连接
-11. Chrome Remote Desktop 仍可作为备用通道
+2. Chrome / iOS 能识别 Credentials 表单并通过密码管理器 + Face ID 填入用户名密码
+3. 能连接 VNC
+4. 打开 Automatic reconnect，并确认 Reconnect delay 为 `3000 ms`
+5. 单指点击正常
+6. pinch zoom 正常
+7. 放大后单指拖动画面正常
+8. 双指上下滚动正常
+9. 双指左右切 Space 正常
+10. 三指轻点进入 / 退出全屏正常
+11. Paste to Mac 中文、多行文字正常
+12. iPhone 短暂锁屏 / 切后台后回来，页面未被杀时能够自动重新连接且不再询问 Credentials
+13. 手动刷新页面后，密码管理器能够再次通过 Face ID 填充
+14. Chrome Remote Desktop 仍可作为备用通道
 
 通过后，再把当前 commit 打 tag 作为旅行冻结版本。
