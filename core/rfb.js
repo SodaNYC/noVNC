@@ -51,6 +51,7 @@ const WHEEL_LINE_HEIGHT = 19; // Assumed pixels for one line step
 
 // Gesture thresholds
 const GESTURE_SCRLSENS = 4;
+const VIEWPORT_DRAG_SENS = 2.2;
 const DOUBLE_TAP_TIMEOUT = 1000;
 const DOUBLE_TAP_THRESHOLD = 50;
 
@@ -1498,7 +1499,10 @@ export default class RFB extends EventTargetMixin {
                                 this._viewportHasMoved = true;
 
                                 this._viewportDragPos = {'x': pos.x, 'y': pos.y};
-                                this._display.viewportChangePos(deltaX, deltaY);
+                                this._display.viewportChangePos(
+                                    deltaX * VIEWPORT_DRAG_SENS,
+                                    deltaY * VIEWPORT_DRAG_SENS
+                                );
                             }
                         } else {
                             this._fakeMouseMove(ev, pos.x, pos.y);
