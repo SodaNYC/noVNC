@@ -259,11 +259,14 @@ password
 
 这时建议通过 iPhone 的密码管理器 + Face ID 自动填充，而不是把 Mac 密码硬编码进 noVNC。
 
-当前默认自动重连延迟：
+当前定制分支的新配置默认值：
 
 ```text
-3000 ms
+Automatic reconnect = ON
+Reconnect delay = 3000 ms
 ```
+
+浏览器已经保存过旧设置时，旧值会优先保留，因此升级后第一次测试请在 Settings 中确认一次。
 
 相比 1000 ms，它给蜂窝网络、Shadowrocket 和 Tailscale 更多恢复时间；相比原版默认 5000 ms，回到远控页面后的等待感更低。
 
