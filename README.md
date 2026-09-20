@@ -1,3 +1,37 @@
+# iPhone 远程控制定制版（基于 noVNC 1.7.0）
+
+> 当前实际使用分支：`iphone-custom-v1.7`
+>
+> 完整功能与维护说明见 [IPHONE_REMOTE_ZH.md](IPHONE_REMOTE_ZH.md)。
+
+## 日常启动
+
+先确认 macOS“屏幕共享”已开启，然后启动本地 noVNC：
+
+```bash
+cd ~/noVNC
+git switch iphone-custom-v1.7
+./utils/novnc_proxy --vnc localhost:5900 --listen 127.0.0.1:6080
+```
+
+随后启动独立的 Tailscale HTTPS gateway：
+
+```bash
+cd ~/novnc-tsnet-gateway
+go build -trimpath -o novnc-gateway .
+./novnc-gateway
+```
+
+iPhone 使用完整的 Tailscale HTTPS 域名访问：
+
+```text
+https://novnc-gateway.<你的-tailnet>.ts.net/
+```
+
+> `go run .` 仅建议用于 gateway 开发调试；日常长期运行优先使用编译后的 `./novnc-gateway`。
+
+---
+
 ## noVNC: HTML VNC client library and application
 
 [![Test Status](https://github.com/novnc/noVNC/workflows/Test/badge.svg)](https://github.com/novnc/noVNC/actions?query=workflow%3ATest)
