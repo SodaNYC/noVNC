@@ -850,7 +850,7 @@ describe('Remote Frame Buffer protocol client', function () {
 
                 expect(RFB.messages.pointerEvent).to.not.have.been.called;
                 expect(client._display.viewportChangePos).to.have.been.calledOnce;
-                expect(client._display.viewportChangePos).to.have.been.calledWith(-30, 0);
+                expect(client._display.viewportChangePos).to.have.been.calledWith(-66, 0);
 
                 client._display.viewportChangePos.resetHistory();
                 RFB.messages.pointerEvent.resetHistory();
@@ -863,7 +863,7 @@ describe('Remote Frame Buffer protocol client', function () {
                 expect(RFB.messages.pointerEvent).to.not.have.been.called;
 
                 expect(client._display.viewportChangePos).to.have.been.calledOnce;
-                expect(client._display.viewportChangePos).to.have.been.calledWith(0, -5);
+                expect(client._display.viewportChangePos).to.have.been.calledWith(0, -11);
             });
 
             it('should initiate viewport dragging on sufficient longpress gesture movement', function () {
@@ -884,7 +884,7 @@ describe('Remote Frame Buffer protocol client', function () {
 
                 expect(RFB.messages.pointerEvent).to.not.have.been.called;
                 expect(client._display.viewportChangePos).to.have.been.calledOnce;
-                expect(client._display.viewportChangePos).to.have.been.calledWith(-30, 0);
+                expect(client._display.viewportChangePos).to.have.been.calledWith(-66, 0);
             });
 
             it('should send button messages on small longpress gesture movement', function () {
@@ -4366,36 +4366,35 @@ describe('Remote Frame Buffer protocol client', function () {
             });
 
             describe('Gesture threetap', function () {
-                it('should handle gesture start for threetap events', function () {
-                    let bmask = 0x2;
+                it('should toggle macOS fullscreen on threetap', function () {
+                    gestureStart('threetap', 20, 40, client);
 
-                    gestureStart("threetap", 20, 40, client);
-
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
+                    expect(pointerEvent).to.not.have.been.called;
+                    expect(keyEvent).to.have.callCount(6);
+                    expect(keyEvent.getCall(0)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Control_L, 1);
+                    expect(keyEvent.getCall(1)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Super_L, 1);
+                    expect(keyEvent.getCall(2)).to.have.been.calledWith(client._sock,
+                                                                       0x66, 1);
+                    expect(keyEvent.getCall(3)).to.have.been.calledWith(client._sock,
+                                                                       0x66, 0);
+                    expect(keyEvent.getCall(4)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Super_L, 0);
+                    expect(keyEvent.getCall(5)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Control_L, 0);
                 });
 
-                it('should keep same position for multiple threetap events', function () {
-                    let bmask = 0x2;
-
-                    for (let offset = 0;offset < 30;offset += 10) {
+                it('should toggle fullscreen once per threetap gesture', function () {
+                    for (let offset = 0; offset < 30; offset += 10) {
                         pointerEvent.resetHistory();
+                        keyEvent.resetHistory();
 
                         gestureStart('threetap', 20, 40 + offset, client);
                         gestureEnd('threetap', 20, 40 + offset, client);
 
-                        expect(pointerEvent).to.have.been.calledThrice;
-                        expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                               20, 40, 0x0);
-                        expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                                20, 40, bmask);
-                        expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                               20, 40, 0x0);
+                        expect(pointerEvent).to.not.have.been.called;
+                        expect(keyEvent).to.have.callCount(6);
                     }
                 });
             });
@@ -4465,411 +4464,221 @@ describe('Remote Frame Buffer protocol client', function () {
             });
 
             describe('Gesture twodrag', function () {
+                const scrollCalls = () => pointerEvent.getCalls().
+                    filter(call => call.args[3] !== 0);
+
                 it('should handle gesture twodrag up events', function () {
-                    let bmask = 0x10; // Button mask for scroll down
+                    const bmask = 0x10; // Button mask for scroll down
 
                     gestureStart('twodrag', 20, 40, client, 0, 0);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
-                    gestureMove('twodrag', 20, 40, client, 0, -60);
+                    gestureMove('twodrag', 20, 40, client, 0, -10);
 
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
+                    const calls = scrollCalls();
+                    expect(calls.length).to.be.greaterThan(0);
+                    for (const call of calls) {
+                        expect(call).to.have.been.calledWith(client._sock,
+                                                             20, 40, bmask);
+                    }
+                    expect(keyEvent).to.not.have.been.called;
                 });
 
                 it('should handle gesture twodrag down events', function () {
-                    let bmask = 0x8; // Button mask for scroll up
+                    const bmask = 0x8; // Button mask for scroll up
 
                     gestureStart('twodrag', 20, 40, client, 0, 0);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
-                    gestureMove('twodrag', 20, 40, client, 0, 60);
+                    gestureMove('twodrag', 20, 40, client, 0, 10);
 
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
+                    const calls = scrollCalls();
+                    expect(calls.length).to.be.greaterThan(0);
+                    for (const call of calls) {
+                        expect(call).to.have.been.calledWith(client._sock,
+                                                             20, 40, bmask);
+                    }
+                    expect(keyEvent).to.not.have.been.called;
                 });
 
-                it('should handle gesture twodrag right events', function () {
-                    let bmask = 0x20; // Button mask for scroll right
-
+                it('should switch macOS Spaces on a right twodrag', function () {
                     gestureStart('twodrag', 20, 40, client, 0, 0);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
-                    gestureMove('twodrag', 20, 40, client, 60, 0);
+                    gestureMove('twodrag', 20, 40, client, 100, 0);
 
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
+                    expect(scrollCalls()).to.have.lengthOf(0);
+                    expect(keyEvent).to.have.callCount(4);
+                    expect(keyEvent.getCall(0)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Control_L, 1);
+                    expect(keyEvent.getCall(1)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Left, 1);
+                    expect(keyEvent.getCall(2)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Left, 0);
+                    expect(keyEvent.getCall(3)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Control_L, 0);
+
+                    keyEvent.resetHistory();
+                    gestureMove('twodrag', 20, 40, client, 160, 0);
+                    expect(keyEvent).to.not.have.been.called;
                 });
 
-                it('should handle gesture twodrag left events', function () {
-                    let bmask = 0x40; // Button mask for scroll left
-
+                it('should switch macOS Spaces on a left twodrag', function () {
                     gestureStart('twodrag', 20, 40, client, 0, 0);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
-                    gestureMove('twodrag', 20, 40, client, -60, 0);
+                    gestureMove('twodrag', 20, 40, client, -100, 0);
 
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
+                    expect(scrollCalls()).to.have.lengthOf(0);
+                    expect(keyEvent).to.have.callCount(4);
+                    expect(keyEvent.getCall(0)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Control_L, 1);
+                    expect(keyEvent.getCall(1)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Right, 1);
+                    expect(keyEvent.getCall(2)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Right, 0);
+                    expect(keyEvent.getCall(3)).to.have.been.calledWith(client._sock,
+                                                                       KeyTable.XK_Control_L, 0);
                 });
 
-                it('should handle gesture twodrag diag events', function () {
-                    let scrlUp = 0x8; // Button mask for scroll up
-                    let scrlRight = 0x20; // Button mask for scroll right
-
+                it('should not commit an ambiguous diagonal twodrag', function () {
                     gestureStart('twodrag', 20, 40, client, 0, 0);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
                     gestureMove('twodrag', 20, 40, client, 60, 60);
 
-                    expect(pointerEvent).to.have.been.callCount(5);
-                    expect(pointerEvent.getCall(0)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, 0x0);
-                    expect(pointerEvent.getCall(1)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, scrlUp);
-                    expect(pointerEvent.getCall(2)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, 0x0);
-                    expect(pointerEvent.getCall(3)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, scrlRight);
-                    expect(pointerEvent.getCall(4)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, 0x0);
+                    expect(scrollCalls()).to.have.lengthOf(0);
+                    expect(keyEvent).to.not.have.been.called;
                 });
 
-                it('should handle multiple small gesture twodrag events', function () {
-                    let bmask = 0x8; // Button mask for scroll up
+                it('should keep small vertical twodrag events as remote scrolling', function () {
+                    const bmask = 0x8; // Button mask for scroll up
 
                     gestureStart('twodrag', 20, 40, client, 0, 0);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
-                    gestureMove('twodrag', 20, 40, client, 0, 10);
-                    clock.tick(50);
+                    gestureMove('twodrag', 20, 40, client, 0, 3);
+                    gestureMove('twodrag', 20, 40, client, 0, 6);
+                    gestureMove('twodrag', 20, 40, client, 0, 9);
 
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
-                    pointerEvent.resetHistory();
-
-                    gestureMove('twodrag', 20, 40, client, 0, 20);
-                    clock.tick(50);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-
-                    pointerEvent.resetHistory();
-
-                    gestureMove('twodrag', 20, 40, client, 0, 60);
-
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
+                    const calls = scrollCalls();
+                    expect(calls.length).to.be.greaterThan(0);
+                    for (const call of calls) {
+                        expect(call).to.have.been.calledWith(client._sock,
+                                                             20, 40, bmask);
+                    }
+                    expect(keyEvent).to.not.have.been.called;
                 });
 
-                it('should handle large gesture twodrag events', function () {
-                    let bmask = 0x8; // Button mask for scroll up
+                it('should generate repeated scrolling for a large vertical twodrag', function () {
+                    const bmask = 0x8; // Button mask for scroll up
 
                     gestureStart('twodrag', 30, 50, client, 0, 0);
-
-                    expect(pointerEvent).
-                        to.have.been.calledOnceWith(client._sock, 30, 50, 0x0);
-
                     pointerEvent.resetHistory();
+                    keyEvent.resetHistory();
 
                     gestureMove('twodrag', 30, 50, client, 0, 200);
 
-                    expect(pointerEvent).to.have.callCount(7);
-                    expect(pointerEvent.getCall(0)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, 0x0);
-                    expect(pointerEvent.getCall(1)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, bmask);
-                    expect(pointerEvent.getCall(2)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, 0x0);
-                    expect(pointerEvent.getCall(3)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, bmask);
-                    expect(pointerEvent.getCall(4)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, 0x0);
-                    expect(pointerEvent.getCall(5)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, bmask);
-                    expect(pointerEvent.getCall(6)).to.have.been.calledWith(client._sock,
-                                                                            30, 50, 0x0);
+                    const calls = scrollCalls();
+                    expect(calls.length).to.be.greaterThan(20);
+                    for (const call of calls) {
+                        expect(call).to.have.been.calledWith(client._sock,
+                                                             30, 50, bmask);
+                    }
+                    expect(keyEvent).to.not.have.been.called;
                 });
             });
 
             describe('Gesture pinch', function () {
-                it('should handle gesture pinch in events', function () {
-                    let keysym = KeyTable.XK_Control_L;
-                    let bmask = 0x10; // Button mask for scroll down
+                it('should apply local zoom instead of remote Ctrl+scroll', function () {
+                    const zoom = sinon.stub(client, '_applyLocalZoom');
+                    const startScale = client._display.scale;
 
                     gestureStart('pinch', 20, 40, client, 90, 90);
 
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
+                    expect(pointerEvent).to.not.have.been.called;
                     expect(keyEvent).to.not.have.been.called;
-
-                    pointerEvent.resetHistory();
 
                     gestureMove('pinch', 20, 40, client, 30, 30);
 
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-
-                    expect(keyEvent).to.have.been.calledTwice;
-                    expect(keyEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                       keysym, 1);
-                    expect(keyEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                        keysym, 0);
-
-                    expect(keyEvent.firstCall).to.have.been.calledBefore(pointerEvent.secondCall);
-                    expect(keyEvent.lastCall).to.have.been.calledAfter(pointerEvent.lastCall);
-
-                    pointerEvent.resetHistory();
-                    keyEvent.resetHistory();
-
-                    gestureEnd('pinch', 20, 40, client);
-
+                    expect(zoom).to.have.been.calledOnce;
+                    expect(zoom.firstCall.args[0]).to.be.closeTo(startScale / 3, 0.001);
                     expect(pointerEvent).to.not.have.been.called;
                     expect(keyEvent).to.not.have.been.called;
+
+                    zoom.restore();
                 });
 
-                it('should handle gesture pinch out events', function () {
-                    let keysym = KeyTable.XK_Control_L;
-                    let bmask = 0x8; // Button mask for scroll up
+                it('should increase local scale on a pinch out gesture', function () {
+                    const zoom = sinon.stub(client, '_applyLocalZoom');
+                    const startScale = client._display.scale;
 
                     gestureStart('pinch', 10, 20, client, 10, 20);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     10, 20, 0x0);
-                    expect(keyEvent).to.not.have.been.called;
-
-                    pointerEvent.resetHistory();
-
                     gestureMove('pinch', 10, 20, client, 70, 80);
 
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           10, 20, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            10, 20, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           10, 20, 0x0);
-
-                    expect(keyEvent).to.have.been.calledTwice;
-                    expect(keyEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                       keysym, 1);
-                    expect(keyEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                        keysym, 0);
-
-                    expect(keyEvent.firstCall).to.have.been.calledBefore(pointerEvent.secondCall);
-                    expect(keyEvent.lastCall).to.have.been.calledAfter(pointerEvent.lastCall);
-
-                    pointerEvent.resetHistory();
-                    keyEvent.resetHistory();
-
-                    gestureEnd('pinch', 10, 20, client);
-
+                    expect(zoom).to.have.been.calledOnce;
+                    expect(zoom.firstCall.args[0]).to.be.greaterThan(startScale);
                     expect(pointerEvent).to.not.have.been.called;
                     expect(keyEvent).to.not.have.been.called;
+
+                    zoom.restore();
                 });
 
-                it('should handle large gesture pinch', function () {
-                    let keysym = KeyTable.XK_Control_L;
-                    let bmask = 0x10; // Button mask for scroll down
+                it('should keep large pinch gestures local', function () {
+                    const zoom = sinon.stub(client, '_applyLocalZoom');
 
                     gestureStart('pinch', 20, 40, client, 150, 150);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-                    expect(keyEvent).to.not.have.been.called;
-
-                    pointerEvent.resetHistory();
-
                     gestureMove('pinch', 20, 40, client, 30, 30);
 
-                    expect(pointerEvent).to.have.been.callCount(5);
-                    expect(pointerEvent.getCall(0)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, 0x0);
-                    expect(pointerEvent.getCall(1)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.getCall(2)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, 0x0);
-                    expect(pointerEvent.getCall(3)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.getCall(4)).to.have.been.calledWith(client._sock,
-                                                                            20, 40, 0x0);
-
-                    expect(keyEvent).to.have.been.calledTwice;
-                    expect(keyEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                       keysym, 1);
-                    expect(keyEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                        keysym, 0);
-
-                    expect(keyEvent.firstCall).to.have.been.calledBefore(pointerEvent.secondCall);
-                    expect(keyEvent.lastCall).to.have.been.calledAfter(pointerEvent.lastCall);
-
-                    pointerEvent.resetHistory();
-                    keyEvent.resetHistory();
-
-                    gestureEnd('pinch', 20, 40, client);
-
+                    expect(zoom).to.have.been.calledOnce;
                     expect(pointerEvent).to.not.have.been.called;
                     expect(keyEvent).to.not.have.been.called;
+
+                    zoom.restore();
                 });
 
-                it('should handle multiple small gesture pinch out events', function () {
-                    let keysym = KeyTable.XK_Control_L;
-                    let bmask = 0x8; // Button mask for scroll down
+                it('should calculate multiple pinch moves from the gesture start', function () {
+                    const zoom = sinon.stub(client, '_applyLocalZoom');
+                    const startScale = client._display.scale;
 
                     gestureStart('pinch', 20, 40, client, 0, 10);
+                    gestureMove('pinch', 20, 40, client, 0, 20);
+                    gestureMove('pinch', 20, 40, client, 0, 5);
 
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
+                    expect(zoom).to.have.callCount(2);
+                    expect(zoom.getCall(0).args[0]).to.be.closeTo(startScale * 2, 0.001);
+                    expect(zoom.getCall(1).args[0]).to.be.closeTo(startScale * 0.5, 0.001);
+                    expect(pointerEvent).to.not.have.been.called;
                     expect(keyEvent).to.not.have.been.called;
-
-                    pointerEvent.resetHistory();
-
-                    gestureMove('pinch', 20, 40, client, 0, 30);
-                    clock.tick(50);
-
-                    expect(pointerEvent).to.have.been.calledWith(client._sock,
-                                                                 20, 40, 0x0);
-
-                    pointerEvent.resetHistory();
-
-                    gestureMove('pinch', 20, 40, client, 0, 60);
-                    clock.tick(50);
-
-                    expect(pointerEvent).to.have.been.calledWith(client._sock,
-                                                                 20, 40, 0x0);
-
-                    pointerEvent.resetHistory();
-                    keyEvent.resetHistory();
-
-                    gestureMove('pinch', 20, 40, client, 0, 90);
-
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-
-                    expect(keyEvent).to.have.been.calledTwice;
-                    expect(keyEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                       keysym, 1);
-                    expect(keyEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                        keysym, 0);
-
-                    expect(keyEvent.firstCall).to.have.been.calledBefore(pointerEvent.secondCall);
-                    expect(keyEvent.lastCall).to.have.been.calledAfter(pointerEvent.lastCall);
-
-                    pointerEvent.resetHistory();
-                    keyEvent.resetHistory();
 
                     gestureEnd('pinch', 20, 40, client);
+                    expect(client._gestureZoomStartMagnitude).to.equal(0);
 
-                    expect(keyEvent).to.not.have.been.called;
+                    zoom.restore();
                 });
 
-                it('should send correct key control code', function () {
-                    let keysym = KeyTable.XK_Control_L;
-                    let code = 0x1d;
-                    let bmask = 0x10; // Button mask for scroll down
-
+                it('should not send QEMU key events during local pinch zoom', function () {
+                    const zoom = sinon.stub(client, '_applyLocalZoom');
                     client._qemuExtKeyEventSupported = true;
 
                     gestureStart('pinch', 20, 40, client, 90, 90);
-
-                    expect(pointerEvent).to.have.been.calledOnceWith(client._sock,
-                                                                     20, 40, 0x0);
-                    expect(qemuKeyEvent).to.not.have.been.called;
-
-                    pointerEvent.resetHistory();
-
                     gestureMove('pinch', 20, 40, client, 30, 30);
-
-                    expect(pointerEvent).to.have.been.calledThrice;
-                    expect(pointerEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-                    expect(pointerEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            20, 40, bmask);
-                    expect(pointerEvent.thirdCall).to.have.been.calledWith(client._sock,
-                                                                           20, 40, 0x0);
-
-                    expect(qemuKeyEvent).to.have.been.calledTwice;
-                    expect(qemuKeyEvent.firstCall).to.have.been.calledWith(client._sock,
-                                                                           keysym,
-                                                                           true,
-                                                                           code);
-                    expect(qemuKeyEvent.secondCall).to.have.been.calledWith(client._sock,
-                                                                            keysym,
-                                                                            false,
-                                                                            code);
-
-                    expect(qemuKeyEvent.firstCall).to.have.been.calledBefore(pointerEvent.secondCall);
-                    expect(qemuKeyEvent.lastCall).to.have.been.calledAfter(pointerEvent.lastCall);
-
-                    pointerEvent.resetHistory();
-                    qemuKeyEvent.resetHistory();
-
                     gestureEnd('pinch', 20, 40, client);
 
+                    expect(zoom).to.have.been.calledOnce;
                     expect(pointerEvent).to.not.have.been.called;
                     expect(qemuKeyEvent).to.not.have.been.called;
+
+                    zoom.restore();
                 });
             });
+
         });
 
         describe('WebSocket events', function () {
