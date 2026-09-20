@@ -64,7 +64,7 @@ function process(elem, locator, enabled) {
             addString(elem.getAttribute("label"), locator(elem));
         }
         if (elem.hasAttribute("placeholder") &&
-            isAnyOf(elem.tagName in ["INPUT", "TEXTAREA"])) {
+            isAnyOf(elem.tagName, ["INPUT", "TEXTAREA"])) {
             addString(elem.getAttribute("placeholder"), locator(elem));
         }
         if (elem.hasAttribute("title")) {
