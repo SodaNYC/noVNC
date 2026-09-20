@@ -103,6 +103,10 @@ for (let i = 0; i < program.args.length; i++) {
 }
 
 let output = "";
+output += "msgid \\\"\\\"\\n";
+output += "msgstr \\\"\\\"\\n";
+output += "\\\"Content-Type: text/plain; charset=UTF-8\\\\n\\\"\\n";
+output += "\\n";
 
 for (let str in strings) {
     output += "#:";
