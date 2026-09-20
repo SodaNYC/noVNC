@@ -4372,17 +4372,17 @@ describe('Remote Frame Buffer protocol client', function () {
                     expect(pointerEvent).to.not.have.been.called;
                     expect(keyEvent).to.have.callCount(6);
                     expect(keyEvent.getCall(0)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Control_L, 1);
+                                                                        KeyTable.XK_Control_L, 1);
                     expect(keyEvent.getCall(1)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Super_L, 1);
+                                                                        KeyTable.XK_Super_L, 1);
                     expect(keyEvent.getCall(2)).to.have.been.calledWith(client._sock,
-                                                                       0x66, 1);
+                                                                        0x66, 1);
                     expect(keyEvent.getCall(3)).to.have.been.calledWith(client._sock,
-                                                                       0x66, 0);
+                                                                        0x66, 0);
                     expect(keyEvent.getCall(4)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Super_L, 0);
+                                                                        KeyTable.XK_Super_L, 0);
                     expect(keyEvent.getCall(5)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Control_L, 0);
+                                                                        KeyTable.XK_Control_L, 0);
                 });
 
                 it('should toggle fullscreen once per threetap gesture', function () {
@@ -4513,13 +4513,13 @@ describe('Remote Frame Buffer protocol client', function () {
                     expect(scrollCalls()).to.have.lengthOf(0);
                     expect(keyEvent).to.have.callCount(4);
                     expect(keyEvent.getCall(0)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Control_L, 1);
+                                                                        KeyTable.XK_Control_L, 1);
                     expect(keyEvent.getCall(1)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Left, 1);
+                                                                        KeyTable.XK_Left, 1);
                     expect(keyEvent.getCall(2)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Left, 0);
+                                                                        KeyTable.XK_Left, 0);
                     expect(keyEvent.getCall(3)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Control_L, 0);
+                                                                        KeyTable.XK_Control_L, 0);
 
                     keyEvent.resetHistory();
                     gestureMove('twodrag', 20, 40, client, 160, 0);
@@ -4536,13 +4536,13 @@ describe('Remote Frame Buffer protocol client', function () {
                     expect(scrollCalls()).to.have.lengthOf(0);
                     expect(keyEvent).to.have.callCount(4);
                     expect(keyEvent.getCall(0)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Control_L, 1);
+                                                                        KeyTable.XK_Control_L, 1);
                     expect(keyEvent.getCall(1)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Right, 1);
+                                                                        KeyTable.XK_Right, 1);
                     expect(keyEvent.getCall(2)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Right, 0);
+                                                                        KeyTable.XK_Right, 0);
                     expect(keyEvent.getCall(3)).to.have.been.calledWith(client._sock,
-                                                                       KeyTable.XK_Control_L, 0);
+                                                                        KeyTable.XK_Control_L, 0);
                 });
 
                 it('should not commit an ambiguous diagonal twodrag', function () {
