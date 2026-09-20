@@ -403,6 +403,18 @@ html {
     display: none !important;
 }
 
+#noVNC_clipboard_button.noVNC_clipboard_pending {
+    border-color: rgba(255, 190, 0, 0.95);
+    background-color: rgba(255, 190, 0, 0.22);
+    box-shadow: 0 0 0 2px rgba(255, 190, 0, 0.35);
+}
+
+#noVNC_mac_clipboard_status {
+    max-width: 280px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
 /* Panels */
 .noVNC_panel {
     transform: translateX(25px);

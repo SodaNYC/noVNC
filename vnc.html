@@ -175,14 +175,34 @@
             </div>
 
             <!-- Clipboard -->
-            <input type="image" alt="Paste to Mac" src="app/images/clipboard.svg"
+            <input type="image" alt="Clipboard" src="app/images/clipboard.svg"
                 id="noVNC_clipboard_button" class="noVNC_button"
-                title="Paste to Mac">
+                title="Clipboard">
             <div class="noVNC_vcenter">
             <div id="noVNC_clipboard" class="noVNC_panel">
                 <div class="noVNC_heading">
-                    <img alt="" src="app/images/clipboard.svg"> Paste to Mac
+                    <img alt="" src="app/images/clipboard.svg"> Clipboard
                 </div>
+
+                <p class="noVNC_subheading">Mac → iPhone</p>
+                <p id="noVNC_mac_clipboard_status">
+                    Waiting for Mac clipboard...
+                </p>
+                <div class="button_row">
+                    <input
+                        id="noVNC_copy_from_mac_button"
+                        type="button"
+                        value="Copy Mac Clipboard to iPhone"
+                        disabled>
+                </div>
+                <p class="noVNC_subheading">
+                    iOS requires one tap before a webpage can write to the
+                    iPhone clipboard.
+                </p>
+
+                <hr>
+
+                <p class="noVNC_subheading">iPhone → Mac</p>
                 <p class="noVNC_subheading">
                     Paste iPhone text below, then send it directly to the Mac.
                 </p>

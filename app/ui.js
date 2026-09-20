@@ -47,6 +47,10 @@ const UI = {
     reconnectUsername: null,
     reconnectPassword: null,
 
+    macClipboardEventSource: null,
+    macClipboardText: null,
+    macClipboardPending: false,
+
     async start(options={}) {
         UI.customSettings = options.settings || {};
         if (UI.customSettings.defaults === undefined) {
@@ -339,6 +343,8 @@ const UI = {
     addClipboardHandlers() {
         document.getElementById("noVNC_clipboard_button")
             .addEventListener('click', UI.toggleClipboardPanel);
+        document.getElementById("noVNC_copy_from_mac_button")
+            .addEventListener('click', UI.copyMacClipboardToIPhone);
         document.getElementById("noVNC_paste_to_mac_button")
             .addEventListener('click', UI.pasteToMac);
     },
@@ -995,6 +1001,201 @@ const UI = {
         }
     },
 
+    updateMacClipboardUI(statusText) {
+        const button =
+            document.getElementById('noVNC_copy_from_mac_button');
+        const status =
+            document.getElementById('noVNC_mac_clipboard_status');
+        const toolbarButton =
+            document.getElementById('noVNC_clipboard_button');
+
+        if (status && typeof statusText === 'string') {
+            status.textContent = statusText;
+        }
+
+        if (button) {
+            button.disabled =
+                typeof UI.macClipboardText !== 'string' ||
+                UI.macClipboardText.length === 0;
+        }
+
+        if (toolbarButton) {
+            toolbarButton.classList.toggle(
+                "noVNC_clipboard_pending",
+                UI.macClipboardPending
+            );
+            toolbarButton.title = UI.macClipboardPending ?
+                "Mac clipboard updated" : "Clipboard";
+        }
+    },
+
+    clearMacClipboardState(statusText="Mac clipboard sync inactive") {
+        UI.macClipboardText = null;
+        UI.macClipboardPending = false;
+        UI.updateMacClipboardUI(statusText);
+    },
+
+    startMacClipboardEvents() {
+        UI.stopMacClipboardEvents();
+
+        if (typeof EventSource === 'undefined') {
+            UI.clearMacClipboardState(
+                "This browser does not support live Mac clipboard sync"
+            );
+            return;
+        }
+
+        UI.clearMacClipboardState("Waiting for Mac clipboard...");
+
+        const source = new EventSource('/api/clipboard/events');
+        UI.macClipboardEventSource = source;
+
+        source.addEventListener(
+            'clipboard',
+            UI.handleMacClipboardEvent
+        );
+
+        source.onerror = () => {
+            if (UI.macClipboardEventSource !== source) {
+                return;
+            }
+            if (UI.macClipboardText === null) {
+                UI.updateMacClipboardUI(
+                    "Mac clipboard stream reconnecting..."
+                );
+            }
+        };
+    },
+
+    stopMacClipboardEvents() {
+        if (UI.macClipboardEventSource !== null) {
+            UI.macClipboardEventSource.close();
+            UI.macClipboardEventSource = null;
+        }
+
+        UI.clearMacClipboardState();
+    },
+
+    handleMacClipboardEvent(ev) {
+        let message;
+
+        try {
+            message = JSON.parse(ev.data);
+        } catch (err) {
+            Log.Error("Invalid Mac clipboard event: " + err);
+            return;
+        }
+
+        switch (message.status) {
+            case 'text': {
+                if (typeof message.text !== 'string' ||
+                    message.text.length === 0) {
+                    UI.clearMacClipboardState(
+                        "Mac clipboard has no text"
+                    );
+                    return;
+                }
+
+                UI.macClipboardText = message.text;
+
+                const isNewMacCopy =
+                    message.kind === 'update' &&
+                    message.source !== 'iphone';
+
+                UI.macClipboardPending = isNewMacCopy;
+
+                const label = isNewMacCopy ?
+                    "New Mac clipboard" : "Mac clipboard ready";
+
+                UI.updateMacClipboardUI(
+                    `${label} (${message.text.length} chars)`
+                );
+
+                if (isNewMacCopy) {
+                    UI.showStatus(
+                        "Mac clipboard updated — open Clipboard to copy",
+                        "normal",
+                        3500
+                    );
+                }
+                break;
+            }
+
+            case 'empty':
+                UI.clearMacClipboardState(
+                    "Mac clipboard has no text"
+                );
+                break;
+
+            case 'too_large':
+                UI.clearMacClipboardState(
+                    "Mac clipboard text is over 64 KiB"
+                );
+                if (message.kind === 'update') {
+                    UI.showStatus(
+                        "Mac clipboard text is over 64 KiB",
+                        "warning",
+                        3500
+                    );
+                }
+                break;
+
+            case 'unavailable':
+            default:
+                UI.clearMacClipboardState(
+                    "Mac clipboard is temporarily unavailable"
+                );
+                break;
+        }
+    },
+
+    async copyMacClipboardToIPhone() {
+        const text = UI.macClipboardText;
+
+        if (typeof text !== 'string' || text.length === 0) {
+            UI.showStatus(
+                "No Mac clipboard text is available",
+                "warning"
+            );
+            return;
+        }
+
+        if (!navigator.clipboard ||
+            typeof navigator.clipboard.writeText !== 'function') {
+            UI.showStatus(
+                "iOS clipboard write is not available here",
+                "error"
+            );
+            return;
+        }
+
+        const button =
+            document.getElementById('noVNC_copy_from_mac_button');
+        button.disabled = true;
+
+        try {
+            // iOS requires this write to be initiated by the user's tap.
+            await navigator.clipboard.writeText(text);
+
+            UI.macClipboardPending = false;
+            UI.updateMacClipboardUI(
+                `Copied to iPhone (${text.length} chars)`
+            );
+            UI.showStatus(
+                "Copied Mac clipboard to iPhone",
+                "normal"
+            );
+        } catch (err) {
+            Log.Error("Copy Mac clipboard to iPhone failed: " + err);
+            UI.showStatus(
+                "Copy to iPhone failed: " + err.message,
+                "error"
+            );
+        } finally {
+            button.disabled = false;
+        }
+    },
+
     async pasteToMac() {
         if (!UI.connected || !UI.rfb) {
             UI.showStatus("Not connected to Mac", "error");
@@ -1231,6 +1432,7 @@ const UI = {
         UI.updateVisualState('connected');
 
         UI.updateBeforeUnload();
+        UI.startMacClipboardEvents();
 
         // Do this last because it can only be used on rendered elements
         UI.rfb.focus();
@@ -1244,6 +1446,7 @@ const UI = {
         // the server, we need to do it here as well since
         // UI.disconnect() won't be used in those cases.
         UI.connected = false;
+        UI.stopMacClipboardEvents();
 
         UI.rfb = undefined;
 

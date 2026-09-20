@@ -14,6 +14,7 @@ iphone-custom-v1.7
 - 增加 macOS Space / 全屏手势
 - 断线后在当前页面生命周期内自动复用用户名和密码重新认证
 - 优化 iPhone Chrome / iOS 密码自动填充和 Face ID 使用
+- 提供 iPhone ↔ Mac 双向文字剪贴板
 - 绕过 Apple Screen Sharing 与 noVNC 标准剪贴板兼容问题
 - 通过独立 tsnet gateway 提供 Tailscale HTTPS 入口
 - 保持改动尽量集中，方便以后从新的官方 noVNC tag 迁移
@@ -177,25 +178,17 @@ SPACE_SWIPE_AXIS_RATIO = 1.4
 
 ---
 
-### 2.6 替换 noVNC 原生剪贴板
+### 2.6 双向文字剪贴板：iPhone ↔ Mac
 
-Apple Screen Sharing 在当前环境里无法可靠使用 noVNC 的标准 `ClientCutText` 剪贴板方案。
+Apple Screen Sharing 在当前环境里无法可靠使用 noVNC 的标准 `ClientCutText` / `ServerCutText` 剪贴板方案。
 
-因此本分支删除了 UI 层原来的：
+因此本分支绕开 Apple VNC clipboard，实现了自己的双向文字剪贴板。
 
-```text
-clipboardReceive
-clipboardSend
-clipboard event listener
-```
-
-改成自定义 **Paste to Mac**。
-
-流程：
+#### iPhone → Mac
 
 ```text
 iPhone 文本
-→ noVNC Paste to Mac 面板
+→ noVNC Clipboard 面板
 → HTTPS POST /api/paste
 → tsnet gateway
 → /usr/bin/pbcopy
@@ -204,7 +197,46 @@ iPhone 文本
 → 粘贴到当前远端输入位置
 ```
 
-Paste 成功后，手机页面中的 textarea 会立即清空，避免敏感剪贴板内容继续留在页面里。
+Paste 成功后，手机页面中的 textarea 会立即清空，避免敏感文本继续留在输入框里。
+
+#### Mac → iPhone
+
+当 VNC 已连接时，noVNC 会建立：
+
+```text
+GET /api/clipboard/events
+```
+
+的 Server-Sent Events（SSE）连接。
+
+gateway 只在这个 SSE 客户端存在时读取 macOS pasteboard：
+
+```text
+Mac Command + C
+→ gateway 每 400 ms 检查一次 /usr/bin/pbpaste
+→ 检测到变化
+→ SSE 立即推送最新文字给 noVNC 页面
+→ Clipboard 图标高亮
+→ iPhone 点一次 “Copy Mac Clipboard to iPhone”
+→ navigator.clipboard.writeText(...)
+→ 写入 iPhone 系统剪贴板
+```
+
+通常从 Mac 复制到 iPhone 页面收到提示的延迟约为 **0～0.4 秒 + 网络延迟**。
+
+iOS/WebKit 不允许网页在没有用户操作时静默改写系统剪贴板，所以最后一步必须由用户点一次按钮。这是浏览器安全限制，不是 noVNC 或 Tailscale 的限制。
+
+隐私设计：
+
+- 只处理文字
+- 单条上限 64 KiB
+- 不保存剪贴板历史
+- 不写入磁盘
+- 不打印剪贴板正文到日志
+- noVNC 断开时关闭 SSE，并清掉页面内存中的 Mac 剪贴板
+- gateway 收到 iPhone → Mac 的 `pbcopy` 后会标记 3 秒短期 echo window，避免把同一段文字误报成新的 “Mac copied” 通知
+- SSE 使用 `Cache-Control: no-store`
+- 普通浏览器的 cross-site SSE 请求会被拒绝；真正的网络访问边界仍然是 tailnet / ACL
 
 ---
 
@@ -330,23 +362,18 @@ autocomplete="current-password"
 
 ---
 
-## 4. Paste to Mac 怎么用
+## 4. 双向剪贴板怎么用
+
+### 4.1 iPhone → Mac
 
 1. 先在远端 Mac 上点击要输入文字的文本框，让它获得焦点。
 2. 打开 noVNC 左侧工具栏。
-3. 点击 **Paste to Mac**。
-4. 在 iPhone 的文本框中使用 iOS 原生“粘贴”。
-5. 点击 **Paste to Mac** 按钮。
+3. 点击 **Clipboard**。
+4. 在 “iPhone → Mac” 文本框中使用 iOS 原生“粘贴”。
+5. 点击 **Paste to Mac**。
 6. gateway 会把内容写入 Mac 系统剪贴板，然后 noVNC 自动发送 `Command + V`。
 
-支持：
-
-- 中文
-- 英文
-- 多行文本
-- 引号
-- shell 特殊字符
-- 代码片段
+支持中文、英文、多行文本、引号、shell 特殊字符和代码片段。
 
 gateway 不通过 shell 处理文本，所以类似：
 
@@ -360,7 +387,20 @@ $HOME
 
 不会被当作 shell 命令执行。
 
-当前请求体限制为 **64 KiB**。
+### 4.2 Mac → iPhone
+
+1. 保持 noVNC 已连接。
+2. 在 Mac 远端桌面里正常按 `Command + C`。
+3. 最迟通常约 0.4 秒后，noVNC 的 Clipboard 图标会高亮，并提示 **Mac clipboard updated**。
+4. 打开 **Clipboard**。
+5. 点击 **Copy Mac Clipboard to iPhone**。
+6. iOS 允许网页写入剪贴板后，该文字已经进入 iPhone 系统剪贴板，可以切到微信、备忘录、Chrome 等 App 直接粘贴。
+
+第一次打开连接时，如果 Mac clipboard 本来就有文字，面板会显示 “Mac clipboard ready”，但不会把旧内容当成一次新的复制操作弹提示。
+
+如果 Mac 复制的是图片、文件或其他非文字类型，`pbpaste` 没有可用文字时按钮会保持不可用。
+
+当前双向文字限制均为 **64 KiB**。
 
 ---
 
@@ -416,9 +456,15 @@ Tailscale HTTPS :443
 
 ```text
 POST /api/paste
+GET  /api/clipboard/events
 ```
 
-用于 Paste to Mac。
+分别用于：
+
+```text
+iPhone → Mac：pbcopy + Command+V
+Mac → iPhone：pbpaste 变化检测 + SSE 推送
+```
 
 ---
 
@@ -478,6 +524,8 @@ Safari / Chrome 切到后台后，iOS 可能暂停 WebSocket。
 另外，如果 Mac 本身进入锁屏，远程桌面中仍可能需要解锁 macOS；这和 VNC 连接认证是两件事。
 
 这是 iOS 生命周期限制，前端无法完全消除。
+
+Mac → iPhone 剪贴板的 SSE 也会受到相同的 iOS 后台挂起限制；回到前台后 EventSource 会自动尝试恢复。由于 iOS 禁止网页无用户手势写入系统剪贴板，即使 SSE 已收到新文本，仍需点一次 **Copy Mac Clipboard to iPhone**。
 
 ---
 
@@ -572,6 +620,7 @@ git config rerere.enabled true
 ```text
 core/rfb.js
 app/ui.js
+app/styles/base.css
 vnc.html
 ```
 
@@ -580,8 +629,9 @@ vnc.html
 其中：
 
 - `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势
-- `app/ui.js`：Paste to Mac 前端行为
-- `vnc.html`：Paste to Mac 面板
+- `app/ui.js`：双向剪贴板、SSE、Paste to Mac 前端行为
+- `app/styles/base.css`：Mac clipboard 新内容提示样式
+- `vnc.html`：双向 Clipboard 面板
 
 gateway 的后端代码位于独立私有仓库，不放进 noVNC fork。
 
@@ -601,9 +651,12 @@ gateway 的后端代码位于独立私有仓库，不放进 noVNC fork。
 8. 双指上下滚动正常
 9. 双指左右切 Space 正常
 10. 三指轻点进入 / 退出全屏正常
-11. Paste to Mac 中文、多行文字正常
-12. iPhone 短暂锁屏 / 切后台后回来，页面未被杀时能够自动重新连接且不再询问 Credentials
-13. 手动刷新页面后，密码管理器能够再次通过 Face ID 填充
-14. Chrome Remote Desktop 仍可作为备用通道
+11. iPhone → Mac：Paste to Mac 中文、多行文字正常
+12. Mac → iPhone：Mac 上 Command+C 后约 0～0.4 秒出现 Clipboard 新内容提示，点一次后能在 iPhone 其他 App 粘贴
+13. iPhone → Mac 后不会立刻收到同一内容的错误 “Mac clipboard updated” 回声提示
+14. iPhone 短暂锁屏 / 切后台后回来，页面未被杀时能够自动重新连接且不再询问 Credentials
+15. SSE 在回到前台后能够恢复，并继续收到 Mac clipboard 更新
+16. 手动刷新页面后，密码管理器能够再次通过 Face ID 填充
+17. Chrome Remote Desktop 仍可作为备用通道
 
 通过后，再把当前 commit 打 tag 作为旅行冻结版本。
