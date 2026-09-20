@@ -438,12 +438,15 @@ git switch iphone-custom-v1.7
 
 ### 5.3 启动 tsnet gateway
 
+日常长期运行推荐先编译，再启动固定二进制：
+
 ```bash
 cd ~/novnc-tsnet-gateway
-go run .
+go build -trimpath -o novnc-gateway .
+./novnc-gateway
 ```
 
-或者以后使用编译好的二进制 / LaunchAgent。
+`go run .` 更适合开发调试；长期使用优先运行编译后的 `./novnc-gateway`。如果以后配置 LaunchAgent，也应让它启动这个编译后的二进制。
 
 gateway 会：
 
@@ -629,9 +632,20 @@ vnc.html
 其中：
 
 - `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势
-- `app/ui.js`：双向剪贴板、SSE、Paste to Mac 前端行为
+- `app/ui.js`：双向剪贴板、SSE、Paste to Mac、自动重连与凭据复用前端行为
 - `app/styles/base.css`：Mac clipboard 新内容提示样式
-- `vnc.html`：双向 Clipboard 面板
+- `vnc.html`：双向 Clipboard 面板与 iOS 密码自动填充字段提示
+
+为让 GitHub Actions 与本定制版行为一致，还包含少量开发/测试辅助修改：
+
+```text
+tests/test.rfb.js
+eslint.config.mjs
+package.json
+po/xgettext-html
+```
+
+这些文件用于测试、Lint 和翻译工具链，不改变实际远控操作逻辑。
 
 gateway 的后端代码位于独立私有仓库，不放进 noVNC fork。
 
