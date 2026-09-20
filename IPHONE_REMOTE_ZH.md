@@ -234,9 +234,9 @@ iOS/WebKit 不允许网页在没有用户操作时静默改写系统剪贴板，
 - 不写入磁盘
 - 不打印剪贴板正文到日志
 - noVNC 断开时关闭 SSE，并清掉页面内存中的 Mac 剪贴板
-- gateway 收到 iPhone → Mac 的 `pbcopy` 后会标记 3 秒短期 echo window，避免把同一段文字误报成新的 “Mac copied” 通知
+- gateway 在执行 iPhone → Mac 的 `pbcopy` 前会建立 3 秒短期 echo window，避免并发检测把同一段文字误报成新的 “Mac copied” 通知
 - SSE 使用 `Cache-Control: no-store`
-- 普通浏览器的 cross-site SSE 请求会被拒绝；真正的网络访问边界仍然是 tailnet / ACL
+- 浏览器的 cross-site / cross-origin SSE 请求会被拒绝；真正的网络访问边界仍然是 tailnet / ACL
 
 ---
 
