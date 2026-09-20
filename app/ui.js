@@ -1096,11 +1096,22 @@ const UI = {
                     return;
                 }
 
+                const previousText = UI.macClipboardText;
+                const hadClipboard =
+                    typeof previousText === 'string' &&
+                    previousText.length > 0;
+
                 UI.macClipboardText = message.text;
 
+                // A normal update is new. A changed snapshot after an
+                // EventSource reconnect is also new, but the very first
+                // snapshot for a VNC session is intentionally quiet.
                 const isNewMacCopy =
-                    message.kind === 'update' &&
-                    message.source !== 'iphone';
+                    message.source !== 'iphone' &&
+                    (message.kind === 'update' ||
+                     (message.kind === 'snapshot' &&
+                      hadClipboard &&
+                      previousText !== message.text));
 
                 UI.macClipboardPending = isNewMacCopy;
 
