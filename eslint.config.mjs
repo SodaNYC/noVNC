@@ -16,6 +16,7 @@ export default [
         rules: {
             // Unsafe or confusing stuff that we forbid
 
+            "no-useless-assignment": "off",
             "no-unused-vars": ["error", { "vars": "all",
                                           "args": "none",
                                           "ignoreRestSiblings": true,
