@@ -125,6 +125,7 @@ export default class RFB extends EventTargetMixin {
         // Internal state
         this._rfbConnectionState = '';
         this._rfbInitState = '';
+        this._disposed = false;
         this._rfbAuthScheme = -1;
         this._rfbCleanDisconnect = true;
         this._rfbRSAAESAuthenticationState = null;
@@ -432,6 +433,10 @@ export default class RFB extends EventTargetMixin {
     // ===== PUBLIC METHODS =====
 
     disconnect() {
+        if (this._disposed) {
+            return;
+        }
+
         this._updateConnectionState('disconnecting');
         this._sock.off('error');
         this._sock.off('message');
@@ -439,6 +444,37 @@ export default class RFB extends EventTargetMixin {
         if (this._rfbRSAAESAuthenticationState !== null) {
             this._rfbRSAAESAuthenticationState.disconnect();
         }
+    }
+
+    dispose() {
+        if (this._disposed) {
+            return;
+        }
+        this._disposed = true;
+
+        // A normal disconnect waits for the WebSocket close event before the
+        // UI releases its RFB reference. iOS can suspend the page before that
+        // event arrives, keeping the full framebuffer alive in memory. For a
+        // background suspend we need deterministic synchronous teardown.
+        this._sock.off('error');
+        this._sock.off('message');
+        this._sock.off('open');
+        this._sock.off('close');
+
+        if (this._rfbRSAAESAuthenticationState !== null) {
+            this._rfbRSAAESAuthenticationState.disconnect();
+        }
+
+        this._disconnect();
+
+        clearTimeout(this._disconnTimer);
+        this._disconnTimer = null;
+
+        this._display.release();
+        this._sock.dispose();
+
+        this._rfbConnectionState = 'disconnected';
+        this._rawChannel = null;
     }
 
     approveServer() {
