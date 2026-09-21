@@ -186,6 +186,23 @@ export default class Display {
         return toSigned32bit(y / this._scale + this._viewportLoc.y);
     }
 
+    release() {
+        // Shrink both canvases without copying the existing framebuffer.
+        // This is intentionally separate from resize(), which preserves the
+        // old image and would temporarily duplicate a large framebuffer.
+        this._renderQ = [];
+        this._flushPromise = null;
+        this._fbWidth = 0;
+        this._fbHeight = 0;
+        this._viewportLoc = { 'x': 0, 'y': 0, 'w': 0, 'h': 0 };
+        this._damageBounds = { left: 0, top: 0, right: 0, bottom: 0 };
+
+        this._target.width = 0;
+        this._target.height = 0;
+        this._backbuffer.width = 0;
+        this._backbuffer.height = 0;
+    }
+
     resize(width, height) {
         this._prevDrawStyle = "";
 
