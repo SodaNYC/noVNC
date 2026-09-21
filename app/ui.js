@@ -269,12 +269,22 @@ const UI = {
     },
 
     suspendIOSSession() {
-        if (!isIOS() || UI.iosLifecycleSuspended) {
+        if (!isIOS()) {
+            return;
+        }
+
+        if (UI.iosResumeTimer !== null) {
+            clearTimeout(UI.iosResumeTimer);
+            UI.iosResumeTimer = null;
+        }
+
+        if (UI.iosLifecycleSuspended) {
             return;
         }
 
         UI.iosLifecycleSuspended = true;
         UI.iosResumeNeeded =
+            UI.iosResumeNeeded ||
             UI.connected ||
             typeof UI.rfb !== 'undefined' ||
             UI.reconnectCallback !== null;
@@ -284,20 +294,21 @@ const UI = {
             UI.reconnectCallback = null;
         }
 
-        if (UI.iosResumeTimer !== null) {
-            clearTimeout(UI.iosResumeTimer);
-            UI.iosResumeTimer = null;
-        }
-
-        // Do not let noVNC reconnect while WebKit is suspended. Closing the
-        // long-lived streams also releases the framebuffer/canvas and socket
-        // state that otherwise make iOS more likely to terminate the page.
         UI.inhibitReconnect = true;
         UI.stopMacClipboardEvents();
 
-        if (typeof UI.rfb !== 'undefined') {
-            UI.rfb.disconnect();
+        const rfb = UI.rfb;
+        UI.rfb = undefined;
+        UI.connected = false;
+
+        if (typeof rfb !== 'undefined') {
+            rfb.dispose();
         }
+
+        // dispose() is synchronous, so no close event is required before the
+        // page can release the large framebuffer and socket receive buffers.
+        UI.updateVisualState('disconnected');
+        UI.updateBeforeUnload();
     },
 
     resumeIOSSession() {
@@ -310,34 +321,14 @@ const UI = {
             return;
         }
 
-        // RFB.disconnect() removes the canvas and closes the socket
-        // synchronously, but the final disconnect event can arrive a little
-        // later. Wait until UI.disconnectFinished() releases UI.rfb before
-        // constructing the replacement connection.
-        if (typeof UI.rfb !== 'undefined') {
-            if (UI.iosResumeTimer === null) {
-                UI.iosResumeTimer = setTimeout(() => {
-                    UI.iosResumeTimer = null;
-                    UI.resumeIOSSession();
-                }, 100);
-            }
-            return;
-        }
-
         UI.inhibitReconnect = false;
 
-        // Give WebKit one task turn after becoming visible so network state
-        // and layout are restored before creating the new WebSocket. Keep the
-        // resume flags set until the connection attempt actually starts so a
-        // second quick app switch cannot lose the pending resume.
+        // Give WebKit one task turn after becoming visible so its network
+        // state and layout settle before we create a fresh WebSocket.
         if (UI.iosResumeTimer === null) {
             UI.iosResumeTimer = setTimeout(() => {
                 UI.iosResumeTimer = null;
                 if (document.hidden) {
-                    return;
-                }
-                if (typeof UI.rfb !== 'undefined') {
-                    UI.resumeIOSSession();
                     return;
                 }
 
