@@ -408,12 +408,12 @@ Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，�
 为了兼顾常用编辑操作和少数需要 modifier 的场景，Extra keys 现在保留三个独立 modifier：
 
 ```text
-Ctrl
-Alt
+Control (⌃)
+Option (⌥)
 Command (⌘)
 ```
 
-三者都可以单独切换为按住 / 释放状态。原来的 **Ctrl+Alt+Del（三个方块）** 快捷按钮已经移除，因为在当前 Mac 远控场景里基本用不到。
+三者都可以单独切换为按住 / 释放状态。**Option 不再沿用 AltLeft 路径**：针对当前 Apple Screen Sharing / macOS VNC 行为，它单独发送 `XK_Meta_L` keysym，从而和 Command 的路径分开。原来的 **Ctrl+Alt+Del（三个方块）** 快捷按钮已经移除，因为在当前 Mac 远控场景里基本用不到。
 
 面板里的高频编辑操作继续提供独立图标：
 
@@ -423,7 +423,7 @@ Copy
 Paste
 ```
 
-Ctrl、Alt、Command、Select All、Copy、Paste 都使用 25×25 图标按钮，并保持同一按钮尺寸与居中对齐。
+Control、Option、Command、Select All、Copy、Paste 都使用 25×25 SVG 画布；这一组自定义图标统一按 **18×18 最大视觉边界**居中校正。Copy 原本已经是 18×18；Select All 从约 19×19 收紧到 18×18；Paste 从偏窄的约 16×19 重画为 18×18。
 
 ### 全选
 
