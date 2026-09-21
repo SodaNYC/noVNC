@@ -299,14 +299,16 @@ const UI = {
     addExtraKeysHandlers() {
         document.getElementById("noVNC_toggle_extra_keys_button")
             .addEventListener('click', UI.toggleExtraKeys);
+        document.getElementById("noVNC_toggle_ctrl_button")
+            .addEventListener('click', UI.toggleCtrl);
+        document.getElementById("noVNC_toggle_alt_button")
+            .addEventListener('click', UI.toggleAlt);
         document.getElementById("noVNC_toggle_command_button")
             .addEventListener('click', UI.toggleCommand);
         document.getElementById("noVNC_send_tab_button")
             .addEventListener('click', UI.sendTab);
         document.getElementById("noVNC_send_esc_button")
             .addEventListener('click', UI.sendEsc);
-        document.getElementById("noVNC_send_ctrl_alt_del_button")
-            .addEventListener('click', UI.sendCtrlAltDel);
         document.getElementById("noVNC_send_select_all_button")
             .addEventListener('click', UI.sendSelectAll);
         document.getElementById("noVNC_send_copy_button")
@@ -2010,6 +2012,28 @@ const UI = {
         UI.sendKey(KeyTable.XK_Tab, "Tab");
     },
 
+    toggleCtrl() {
+        const btn = document.getElementById('noVNC_toggle_ctrl_button');
+        if (btn.classList.contains("noVNC_selected")) {
+            UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", false);
+            btn.classList.remove("noVNC_selected");
+        } else {
+            UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", true);
+            btn.classList.add("noVNC_selected");
+        }
+    },
+
+    toggleAlt() {
+        const btn = document.getElementById('noVNC_toggle_alt_button');
+        if (btn.classList.contains("noVNC_selected")) {
+            UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", false);
+            btn.classList.remove("noVNC_selected");
+        } else {
+            UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", true);
+            btn.classList.add("noVNC_selected");
+        }
+    },
+
     toggleCommand() {
         const btn = document.getElementById('noVNC_toggle_command_button');
         if (btn.classList.contains("noVNC_selected")) {
@@ -2019,13 +2043,6 @@ const UI = {
             UI.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
             btn.classList.add("noVNC_selected");
         }
-    },
-
-    sendCtrlAltDel() {
-        UI.rfb.sendCtrlAltDel();
-        // See below
-        UI.rfb.focus();
-        UI.idleControlbar();
     },
 
     sendSelectAll() {
