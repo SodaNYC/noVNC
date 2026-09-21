@@ -184,6 +184,16 @@ const UI = {
         UI.initSetting('autoconnect', false);
         UI.initSetting('view_clip', false);
         UI.initSetting('resize', 'off');
+
+        // iPhone always starts in fit-to-screen pointer mode. Keep this
+        // session-only so desktop/browser saved preferences remain intact.
+        if (isIOS()) {
+            WebUtil.setSetting('resize', 'scale');
+            WebUtil.setSetting('view_clip', false);
+            UI.updateSetting('resize');
+            UI.updateSetting('view_clip');
+        }
+
         UI.initSetting('quality', 6);
         UI.initSetting('compression', 2);
         UI.initSetting('shared', true);

@@ -361,6 +361,19 @@ autocomplete="current-password"
 
 一次手势确定方向后，中途不会在“滚动”和“切 Space”之间反复切换。
 
+### 启动时默认显示整个桌面
+
+iPhone 每次重新进入 noVNC 时，当前页面会先使用 **Local scaling / fit-to-screen**，而不是直接进入 Left Drag 或 Pan：
+
+```text
+进入 noVNC
+→ 整个 Mac 桌面缩放到 iPhone 当前可视区域
+→ 左侧模式按钮显示置灰的普通箭头
+→ 当前是 Normal pointer mode
+```
+
+这个启动行为只覆盖当前 iPhone 页面会话，不会改写其他浏览器保存的 noVNC 设置。之后 Pinch 放大并产生可平移区域时，才会按现有逻辑进入 **Viewport pan mode**。
+
 ### 指针 / Viewport Pan / Left Drag 三种图标状态
 
 左侧同一个模式按钮会根据当前状态动态切换图标，避免只靠“选中 / 未选中”判断：
