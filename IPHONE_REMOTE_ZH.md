@@ -403,6 +403,21 @@ Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，�
 - Finder 中双击项目
 - 双击窗口标题栏；具体是“缩放”还是“最小化”取决于 macOS 的标题栏双击设置
 
+### Extra keys：Mac 精简布局
+
+为了让 iPhone 上的面板更清楚，原来的 **Ctrl / Alt / Windows** 三个传统 modifier 方块按钮已经移除，改为只保留一个原生语义的 **Command (⌘)** 图标按钮。Command 按钮仍然可以作为按住/释放 modifier 使用。
+
+面板里的高频编辑操作现在直接提供独立图标：
+
+```text
+Command (⌘)
+Select All
+Copy
+Paste
+```
+
+这些图标都使用统一的 25×25 白色 SVG，并按同一中心线对齐。
+
 ### 全选
 
 打开左侧工具栏的 **Extra keys**，点击 **Select All** 图标（四角选择框 + A）：
@@ -425,16 +440,35 @@ Copy
 → 复制当前 Mac 前台应用中已经选中的内容
 ```
 
-常用组合：
+在文本、Finder 文件列表以及支持 macOS 标准 `Command + C` 的应用中都可以使用。复制成功后，Mac 系统剪贴板会更新；当前 gateway 的 Mac → iPhone 剪贴板监听会继续按既有逻辑检测这次更新并提示。
+
+### 粘贴
+
+**Paste** 图标使用“剪贴板 + 向下箭头”，点击后直接向远端 Mac 发送：
 
 ```text
-Select All
-→ Copy
-→ Command + A
-→ Command + C
+Paste
+→ Command + V
+→ 把 Mac 当前剪贴板内容粘贴到当前焦点位置
 ```
 
-在文本、Finder 文件列表以及支持 macOS 标准 `Command + C` 的应用中都可以使用。复制成功后，Mac 系统剪贴板会更新；当前 gateway 的 Mac → iPhone 剪贴板监听会继续按既有逻辑检测这次更新并提示。
+它和 **Clipboard** 面板用途不同：
+
+- **Paste 图标**：只是远程快捷键 `Command + V`，适合已经在 Mac 剪贴板里的内容。
+- **Clipboard 面板**：负责 iPhone ↔ Mac 的跨端文字传递。
+
+典型组合：
+
+```text
+Select All → Copy
+Command + A → Command + C
+
+切换到目标位置
+Paste
+→ Command + V
+```
+
+也可以先用 Clipboard 面板把 iPhone 文字送入 Mac 剪贴板，再点 **Paste** 图标直接粘贴。
 
 ---
 
