@@ -405,18 +405,25 @@ Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，�
 
 ### Extra keys：Mac 精简布局
 
-为了让 iPhone 上的面板更清楚，原来的 **Ctrl / Alt / Windows** 三个传统 modifier 方块按钮已经移除，改为只保留一个原生语义的 **Command (⌘)** 图标按钮。Command 按钮仍然可以作为按住/释放 modifier 使用。
-
-面板里的高频编辑操作现在直接提供独立图标：
+为了兼顾常用编辑操作和少数需要 modifier 的场景，Extra keys 现在保留三个独立 modifier：
 
 ```text
+Ctrl
+Alt
 Command (⌘)
+```
+
+三者都可以单独切换为按住 / 释放状态。原来的 **Ctrl+Alt+Del（三个方块）** 快捷按钮已经移除，因为在当前 Mac 远控场景里基本用不到。
+
+面板里的高频编辑操作继续提供独立图标：
+
+```text
 Select All
 Copy
 Paste
 ```
 
-这些图标都使用统一的 25×25 白色 SVG，并按同一中心线对齐。
+Ctrl、Alt、Command、Select All、Copy、Paste 都使用 25×25 图标按钮，并保持同一按钮尺寸与居中对齐。
 
 ### 全选
 
