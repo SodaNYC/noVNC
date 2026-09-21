@@ -306,6 +306,40 @@ export default class Websock {
         }
     }
 
+    dispose() {
+        const channel = this._websocket;
+
+        this.off('message');
+        this.off('open');
+        this.off('close');
+        this.off('error');
+
+        if (channel) {
+            // Break the browser channel -> Websock callback chain before
+            // closing. iOS may freeze the page before a close event runs.
+            channel.onmessage = () => {};
+            channel.onopen = () => {};
+            channel.onclose = () => {};
+            channel.onerror = () => {};
+
+            if (ReadyStates.CONNECTING.includes(channel.readyState) ||
+                ReadyStates.OPEN.includes(channel.readyState)) {
+                channel.close();
+            }
+        }
+
+        this._websocket = null;
+
+        // The receive queue alone is normally 4 MiB. Release it immediately
+        // instead of waiting for garbage collection in a suspended WebKit
+        // process.
+        this._rQ = new Uint8Array(0);
+        this._sQ = new Uint8Array(0);
+        this._rQi = 0;
+        this._rQlen = 0;
+        this._sQlen = 0;
+    }
+
     // private methods
 
     // We want to move all the unread data to the start of the queue,
