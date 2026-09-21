@@ -313,6 +313,8 @@ const UI = {
             .addEventListener('click', UI.sendCtrlAltDel);
         document.getElementById("noVNC_send_select_all_button")
             .addEventListener('click', UI.sendSelectAll);
+        document.getElementById("noVNC_send_copy_button")
+            .addEventListener('click', UI.sendCopy);
     },
 
     addMachineHandlers() {
@@ -2058,6 +2060,23 @@ const UI = {
             UI.rfb.sendKey(
                 keysyms.lookup('a'.charCodeAt(0)),
                 "KeyA"
+            );
+        } finally {
+            UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
+        }
+
+        UI.rfb.focus();
+        UI.idleControlbar();
+    },
+
+    sendCopy() {
+        if (!UI.rfb) return;
+
+        UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
+        try {
+            UI.rfb.sendKey(
+                keysyms.lookup('c'.charCodeAt(0)),
+                "KeyC"
             );
         } finally {
             UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
