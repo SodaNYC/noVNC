@@ -369,17 +369,18 @@ iOS / iPadOS 会主动冻结甚至回收后台网页。为了避免 Safari / Chr
 切出 noVNC
 → 暂停普通 reconnect timer
 → 关闭 Mac Clipboard EventSource
-→ 主动断开 RFB / WebSocket
-→ 释放当前 VNC canvas / framebuffer
+→ 对旧 RFB 做同步 hard dispose
+→ 立即把可见 canvas + 隐藏 framebuffer 都缩到 0×0
+→ 释放 WebSocket 4 MiB 接收队列并切断浏览器回调链
+→ 当前页面不再等待 WebSocket close event
 
 重新回到 noVNC
-→ 等待旧 RFB 对象完成清理
-→ 立即使用当前会话保存的认证信息重新连接
+→ 立即使用当前会话保存的认证信息创建全新的 RFB
 → 重启 Mac Clipboard EventSource
 → 回到当前 iPhone 的 fit-to-screen 视图
 ```
 
-因此短时间切换到其他 App 后再回来，不再依赖一个已经被 WebKit 冻结的旧 WebSocket。若 iOS 仍然因为系统内存压力直接终止整个网页进程，则浏览器只能重新加载页面；但后台主动释放 VNC 资源会显著降低这种情况发生的机会。
+因此短时间切换到其他 App 后再回来，不再依赖一个已经被 WebKit 冻结的旧 WebSocket。此前第一版 suspend 仍然要等待 WebSocket close event 才释放 UI 里的旧 RFB 引用；iOS 如果先冻结事件循环，完整 framebuffer 仍可能留在内存里。当前版本改为同步 hard dispose，不再等待 close event。若系统在 JavaScript 获得 pagehide / visibilitychange 机会之前就直接终止整个 WebContent 进程，浏览器仍只能重新加载页面，但这一路径已经把我们能主动释放的主要内存都提前释放。
 
 ### 启动时默认显示整个桌面
 
