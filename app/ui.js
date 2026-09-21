@@ -324,23 +324,32 @@ const UI = {
             return;
         }
 
-        UI.iosLifecycleSuspended = false;
-        UI.iosResumeNeeded = false;
         UI.inhibitReconnect = false;
 
         // Give WebKit one task turn after becoming visible so network state
-        // and layout are restored before creating the new WebSocket.
-        UI.iosResumeTimer = setTimeout(() => {
-            UI.iosResumeTimer = null;
-            if (document.hidden || typeof UI.rfb !== 'undefined') {
-                return;
-            }
-            UI.connect(
-                null,
-                UI.reconnectPassword,
-                UI.reconnectUsername
-            );
-        }, 100);
+        // and layout are restored before creating the new WebSocket. Keep the
+        // resume flags set until the connection attempt actually starts so a
+        // second quick app switch cannot lose the pending resume.
+        if (UI.iosResumeTimer === null) {
+            UI.iosResumeTimer = setTimeout(() => {
+                UI.iosResumeTimer = null;
+                if (document.hidden) {
+                    return;
+                }
+                if (typeof UI.rfb !== 'undefined') {
+                    UI.resumeIOSSession();
+                    return;
+                }
+
+                UI.iosLifecycleSuspended = false;
+                UI.iosResumeNeeded = false;
+                UI.connect(
+                    null,
+                    UI.reconnectPassword,
+                    UI.reconnectUsername
+                );
+            }, 100);
+        }
     },
 
     addControlbarHandlers() {
