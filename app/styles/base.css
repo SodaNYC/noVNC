@@ -587,6 +587,13 @@ html {
     padding: 10px;
 }
 
+#noVNC_modifiers .noVNC_text_button {
+    color: white;
+    font-size: 14px;
+    line-height: 24px;
+    min-width: 86px;
+}
+
 /* Shutdown/Reboot */
 :root:not(.noVNC_connected) #noVNC_power_button {
     display: none;
