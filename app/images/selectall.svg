@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="25" height="25" viewBox="0 0 25 25">
+  <!-- Symmetric selection corners around a centered vector A. -->
+  <g fill="none" stroke="#ffffff" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 4H4v3 M18 4h3v3 M7 21H4v-3 M18 21h3v-3"/>
+    <path d="M8.75 17.5L12.5 7.25l3.75 10.25 M10.15 13.7h4.7"/>
+  </g>
+</svg>
