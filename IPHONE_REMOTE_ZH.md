@@ -405,7 +405,7 @@ Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，�
 
 ### 全选
 
-打开左侧工具栏的 **Extra keys**，点击 **Select All**：
+打开左侧工具栏的 **Extra keys**，点击 **Select All** 图标（四角选择框 + A）：
 
 ```text
 Select All
@@ -414,6 +414,27 @@ Select All
 ```
 
 适用于文本、Finder 文件列表以及支持 macOS 标准 `Command + A` 的应用。
+
+### 复制
+
+同一个 **Extra keys** 面板里还有 **Copy** 图标（两张重叠页面）：
+
+```text
+Copy
+→ Command + C
+→ 复制当前 Mac 前台应用中已经选中的内容
+```
+
+常用组合：
+
+```text
+Select All
+→ Copy
+→ Command + A
+→ Command + C
+```
+
+在文本、Finder 文件列表以及支持 macOS 标准 `Command + C` 的应用中都可以使用。复制成功后，Mac 系统剪贴板会更新；当前 gateway 的 Mac → iPhone 剪贴板监听会继续按既有逻辑检测这次更新并提示。
 
 ---
 
