@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      width="25" height="25" viewBox="0 0 25 25">
-  <!-- macOS Option symbol (⌥), 18px visual width, centered at 12.5/12.5. -->
-  <path fill="#ffffff"
-        d="M3.5 7.3232H9.6348L16.1387 16.1826H21.5V17.6768H15.3652L8.8613 8.8174H3.5ZM15.3477 7.3232H21.5V8.8174H15.3477Z"/>
+  <!-- macOS Option symbol (⌥): 18px visual width, centered, 2px stroke. -->
+  <g fill="none" stroke="#ffffff" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 8.5H9.5L16 16.5H20.5"/>
+    <path d="M15 8.5H20.5"/>
+  </g>
 </svg>

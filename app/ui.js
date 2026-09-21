@@ -2015,10 +2015,12 @@ const UI = {
     toggleCtrl() {
         const btn = document.getElementById('noVNC_toggle_ctrl_button');
         if (btn.classList.contains("noVNC_selected")) {
-            UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", false);
+            // Apple Screen Sharing can mishandle the XT ControlLeft
+            // scancode path. Use the Control keysym directly.
+            UI.rfb.sendKey(KeyTable.XK_Control_L, null, false);
             btn.classList.remove("noVNC_selected");
         } else {
-            UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", true);
+            UI.rfb.sendKey(KeyTable.XK_Control_L, null, true);
             btn.classList.add("noVNC_selected");
         }
     },

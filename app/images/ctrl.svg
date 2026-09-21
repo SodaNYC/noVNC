@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      width="25" height="25" viewBox="0 0 25 25">
-  <!-- macOS Control symbol (⌃), 18px visual width, centered at 12.5/12.5. -->
-  <path fill="#ffffff"
-        d="M11.5959 12.1918 5.9658 17.7808 3.5 15.3151 11.5959 7.2192H13.4452L21.5 15.3151 19.0342 17.7808 13.4452 12.1918Z"/>
+  <!-- macOS Control symbol (⌃): 18px visual width, centered, 2px stroke. -->
+  <path d="M4.5 16.5L12.5 8.5L20.5 16.5"
+        fill="none" stroke="#ffffff" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

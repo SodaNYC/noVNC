@@ -413,7 +413,7 @@ Option (⌥)
 Command (⌘)
 ```
 
-三者都可以单独切换为按住 / 释放状态。**Option 不再沿用 AltLeft 路径**：针对当前 Apple Screen Sharing / macOS VNC 行为，它单独发送 `XK_Meta_L` keysym，从而和 Command 的路径分开。原来的 **Ctrl+Alt+Del（三个方块）** 快捷按钮已经移除，因为在当前 Mac 远控场景里基本用不到。
+三者都可以单独切换为按住 / 释放状态。针对当前 Apple Screen Sharing / macOS VNC 行为，**Control 和 Option 都使用 keysym-only 路径**，避免走容易被 macOS 错误映射的 XT scancode：Control 发送 `XK_Control_L`，Option 发送 `XK_Meta_L`；Command 继续使用 `XK_Super_L`。原来的 **Ctrl+Alt+Del（三个方块）** 快捷按钮已经移除，因为在当前 Mac 远控场景里基本用不到。
 
 面板里的高频编辑操作继续提供独立图标：
 
@@ -423,7 +423,7 @@ Copy
 Paste
 ```
 
-Control、Option、Command、Select All、Copy、Paste 都使用 25×25 SVG 画布；这一组自定义图标统一按 **18×18 最大视觉边界**居中校正。Copy 原本已经是 18×18；Select All 从约 19×19 收紧到 18×18；Paste 从偏窄的约 16×19 重画为 18×18。
+Control、Option、Command、Select All、Copy、Paste 都使用 25×25 SVG 画布，并统一以 **18px 最大视觉跨度**围绕 12.5 / 12.5 中心校正。Control、Option、Command 统一为 2px 圆角线条风格；Select All、Copy、Paste 也保持 2px 线宽。Control / Option 因符号本身较扁，实际高度自然较小，但不会人为拉伸变形。
 
 ### 全选
 
