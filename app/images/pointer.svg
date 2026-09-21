@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      width="25" height="25" viewBox="0 0 25 25">
-  <path fill="#ffffff"
-        d="M4 2.5v18.2l4.9-4.35 3.65 6.15 3.05-1.8-3.55-6.05h6.5L4 2.5z"/>
+  <!-- Optical centering: the cursor's visual weight sits left of its bounds. -->
+  <g transform="translate(3.25,0)">
+    <path fill="#ffffff"
+          d="M4 2.5v18.2l4.9-4.35 3.65 6.15 3.05-1.8-3.55-6.05h6.5L4 2.5z"/>
+  </g>
 </svg>
