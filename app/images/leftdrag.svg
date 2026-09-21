@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="25" height="25" viewBox="0 0 25 25">
+  <path fill="none" stroke="#ffffff" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        d="M6.5 8.5V7.25A5.25 5.25 0 0 1 11.75 2h.5a5.25 5.25 0 0 1 5.25 5.25v5.5A5.25 5.25 0 0 1 12.25 18h-.5A5.25 5.25 0 0 1 6.5 12.75V8.5z"/>
+  <path fill="#ffffff"
+        d="M6.5 7.25A5.25 5.25 0 0 1 11.75 2H12v6.5H6.5V7.25z"/>
+  <path fill="none" stroke="#ffffff" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        d="M12 2v6.5h5.5"/>
+  <path fill="none" stroke="#ffffff" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        d="M15.5 15.5l6 6m0-4v4h-4"/>
+</svg>
