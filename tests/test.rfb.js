@@ -407,6 +407,34 @@ describe('Remote Frame Buffer protocol client', function () {
                 expect(client._sock.off).to.have.been.calledWith('open');
             });
         });
+
+        describe('#dispose', function () {
+            it('should synchronously release framebuffer and socket buffers', function () {
+                const client = makeRFB();
+                const sock = client._sock;
+                const canvas = client._canvas;
+                const backbuffer = client._display._backbuffer;
+                const callback = sinon.spy();
+
+                client.addEventListener('disconnect', callback);
+                client._display.resize(64, 64);
+
+                client.dispose();
+
+                expect(client._rfbConnectionState).to.equal('disconnected');
+                expect(canvas.width).to.equal(0);
+                expect(canvas.height).to.equal(0);
+                expect(backbuffer.width).to.equal(0);
+                expect(backbuffer.height).to.equal(0);
+                expect(sock._rQ.length).to.equal(0);
+                expect(sock._sQ.length).to.equal(0);
+                expect(callback).to.not.have.been.called;
+
+                // dispose() is terminal and already performed the cleanup that
+                // the common afterEach hook normally does.
+                rfbs.splice(rfbs.indexOf(client), 1);
+            });
+        });
     });
 
     describe('Public API basic behavior', function () {
