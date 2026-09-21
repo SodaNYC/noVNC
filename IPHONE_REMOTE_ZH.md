@@ -361,20 +361,29 @@ autocomplete="current-password"
 
 一次手势确定方向后，中途不会在“滚动”和“切 Space”之间反复切换。
 
-### 放大画面后的左键拖动模式
+### 指针 / Viewport Pan / Left Drag 三种图标状态
 
-Pinch 放大后，noVNC 默认把单指拖动用于移动 viewport。此时左侧工具栏的 **Drag/Pan** 图标处于选中状态。
+左侧同一个模式按钮会根据当前状态动态切换图标，避免只靠“选中 / 未选中”判断：
+
+| 图标状态 | 当前模式 | 单指拖动行为 |
+| --- | --- | --- |
+| 箭头 | Normal pointer mode | 普通鼠标操作；当前画面不需要 viewport 平移 |
+| 手掌 | Viewport pan mode | 移动放大后的 viewport |
+| 鼠标左键按下 + 拖动箭头 | Left mouse drag mode | 向 Mac 发送真正的左键按住拖动 |
+
+Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，按钮显示白色手掌并使用现有 noVNC 选中样式。
 
 需要在放大画面下拖文件、拖窗口或框选文字时：
 
 ```text
-点一下 Drag/Pan 图标
+点一下手掌图标
+→ 图标切换为 Left Drag
 → 提示 Left mouse drag mode
 → 单指按住并拖动
-→ Mac 收到真正的左键按下 + 移动 + 松开
+→ Mac 收到左键按下 + 移动 + 松开
 ```
 
-再点一次该图标会回到 **Viewport pan mode**。
+再点一次会切回 **Viewport pan mode**。当画面恢复为无需平移的普通状态时，按钮显示箭头，并回到 **Normal pointer mode**。
 
 ### 双击
 

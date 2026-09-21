@@ -1720,7 +1720,11 @@ const UI = {
  * ------v------*/
 
     toggleViewDrag() {
-        if (!UI.rfb) return;
+        if (!UI.rfb ||
+            !UI.rfb.clipViewport ||
+            !UI.rfb.clippingViewport) {
+            return;
+        }
 
         UI.rfb.dragViewport = !UI.rfb.dragViewport;
         UI.updateViewDrag();
@@ -1737,32 +1741,45 @@ const UI = {
     updateViewDrag() {
         if (!UI.connected) return;
 
-        const viewDragButton = document.getElementById('noVNC_view_drag_button');
+        const viewDragButton =
+            document.getElementById('noVNC_view_drag_button');
 
-        if ((!UI.rfb.clipViewport || !UI.rfb.clippingViewport) &&
-            UI.rfb.dragViewport) {
-            // We are no longer clipping the viewport. Make sure
-            // viewport drag isn't active when it can't be used.
+        const canPan =
+            UI.rfb.clipViewport &&
+            UI.rfb.clippingViewport;
+
+        if (!canPan && UI.rfb.dragViewport) {
+            // A normal unclipped viewport does not need a pan mode.
             UI.rfb.dragViewport = false;
         }
 
+        // Keep the mode indicator visible whenever connected. The icon
+        // itself now communicates the current touch interaction mode.
+        viewDragButton.classList.remove("noVNC_hidden");
+        viewDragButton.classList.remove("noVNC_selected");
+        viewDragButton.disabled = !canPan;
+
+        if (!canPan) {
+            viewDragButton.src = "app/images/pointer.svg";
+            viewDragButton.alt = "Pointer mode";
+            viewDragButton.title = "Normal pointer mode";
+            return;
+        }
+
+        viewDragButton.disabled = false;
+        viewDragButton.classList.add("noVNC_selected");
+
         if (UI.rfb.dragViewport) {
-            viewDragButton.classList.add("noVNC_selected");
+            viewDragButton.src = "app/images/drag.svg";
+            viewDragButton.alt = "Viewport pan mode";
             viewDragButton.title =
                 "Viewport pan mode — tap for left mouse drag";
         } else {
-            viewDragButton.classList.remove("noVNC_selected");
+            viewDragButton.src = "app/images/leftdrag.svg";
+            viewDragButton.alt = "Left mouse drag mode";
             viewDragButton.title =
                 "Left mouse drag mode — tap to pan viewport";
         }
-
-        if (UI.rfb.clipViewport) {
-            viewDragButton.classList.remove("noVNC_hidden");
-        } else {
-            viewDragButton.classList.add("noVNC_hidden");
-        }
-
-        viewDragButton.disabled = !UI.rfb.clippingViewport;
     },
 
 /* ------^-------
