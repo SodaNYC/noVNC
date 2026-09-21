@@ -47,6 +47,10 @@ const UI = {
     reconnectUsername: null,
     reconnectPassword: null,
 
+    iosLifecycleSuspended: false,
+    iosResumeNeeded: false,
+    iosResumeTimer: null,
+
     macClipboardEventSource: null,
     macClipboardText: null,
     macClipboardPending: false,
@@ -126,6 +130,7 @@ const UI = {
         UI.addConnectionControlHandlers();
         UI.addClipboardHandlers();
         UI.addSettingsHandlers();
+        UI.addIOSLifecycleHandlers();
         document.getElementById("noVNC_status")
             .addEventListener('click', UI.hideStatus);
 
@@ -231,6 +236,121 @@ const UI = {
 * ==============
 * EVENT HANDLERS
 * ------v------*/
+
+    addIOSLifecycleHandlers() {
+        if (!isIOS()) {
+            return;
+        }
+
+        document.addEventListener(
+            'visibilitychange',
+            UI.handleIOSVisibilityChange
+        );
+        window.addEventListener('pagehide', UI.handleIOSPageHide);
+        window.addEventListener('pageshow', UI.handleIOSPageShow);
+    },
+
+    handleIOSVisibilityChange() {
+        if (document.hidden) {
+            UI.suspendIOSSession();
+        } else {
+            UI.resumeIOSSession();
+        }
+    },
+
+    handleIOSPageHide() {
+        UI.suspendIOSSession();
+    },
+
+    handleIOSPageShow() {
+        if (!document.hidden) {
+            UI.resumeIOSSession();
+        }
+    },
+
+    suspendIOSSession() {
+        if (!isIOS() || UI.iosLifecycleSuspended) {
+            return;
+        }
+
+        UI.iosLifecycleSuspended = true;
+        UI.iosResumeNeeded =
+            UI.connected ||
+            typeof UI.rfb !== 'undefined' ||
+            UI.reconnectCallback !== null;
+
+        if (UI.reconnectCallback !== null) {
+            clearTimeout(UI.reconnectCallback);
+            UI.reconnectCallback = null;
+        }
+
+        if (UI.iosResumeTimer !== null) {
+            clearTimeout(UI.iosResumeTimer);
+            UI.iosResumeTimer = null;
+        }
+
+        // Do not let noVNC reconnect while WebKit is suspended. Closing the
+        // long-lived streams also releases the framebuffer/canvas and socket
+        // state that otherwise make iOS more likely to terminate the page.
+        UI.inhibitReconnect = true;
+        UI.stopMacClipboardEvents();
+
+        if (typeof UI.rfb !== 'undefined') {
+            UI.rfb.disconnect();
+        }
+    },
+
+    resumeIOSSession() {
+        if (!isIOS() || document.hidden || !UI.iosLifecycleSuspended) {
+            return;
+        }
+
+        if (!UI.iosResumeNeeded) {
+            UI.iosLifecycleSuspended = false;
+            return;
+        }
+
+        // RFB.disconnect() removes the canvas and closes the socket
+        // synchronously, but the final disconnect event can arrive a little
+        // later. Wait until UI.disconnectFinished() releases UI.rfb before
+        // constructing the replacement connection.
+        if (typeof UI.rfb !== 'undefined') {
+            if (UI.iosResumeTimer === null) {
+                UI.iosResumeTimer = setTimeout(() => {
+                    UI.iosResumeTimer = null;
+                    UI.resumeIOSSession();
+                }, 100);
+            }
+            return;
+        }
+
+        UI.inhibitReconnect = false;
+
+        // Give WebKit one task turn after becoming visible so network state
+        // and layout are restored before creating the new WebSocket. Keep the
+        // resume flags set until the connection attempt actually starts so a
+        // second quick app switch cannot lose the pending resume.
+        if (UI.iosResumeTimer === null) {
+            UI.iosResumeTimer = setTimeout(() => {
+                UI.iosResumeTimer = null;
+                if (document.hidden) {
+                    return;
+                }
+                if (typeof UI.rfb !== 'undefined') {
+                    UI.resumeIOSSession();
+                    return;
+                }
+
+                UI.iosLifecycleSuspended = false;
+                UI.iosResumeNeeded = false;
+                UI.connect(
+                    null,
+                    UI.reconnectPassword,
+                    UI.reconnectUsername
+                );
+            }, 100);
+        }
+    },
 
     addControlbarHandlers() {
         document.getElementById("noVNC_control_bar")
@@ -1484,6 +1604,15 @@ const UI = {
                 UI.showStatus(_("Failed to connect to server"), 'error');
             }
         }
+        // Background suspension is intentional on iOS. Do not show an error or
+        // schedule the normal reconnect loop while WebKit is hidden; the
+        // lifecycle handler reconnects immediately after the page is visible.
+        if (UI.iosLifecycleSuspended) {
+            UI.updateVisualState('disconnected');
+            UI.updateBeforeUnload();
+            return;
+        }
+
         // If reconnecting is allowed process it now
         if (UI.getSetting('reconnect', false) === true && !UI.inhibitReconnect) {
             UI.updateVisualState('reconnecting');

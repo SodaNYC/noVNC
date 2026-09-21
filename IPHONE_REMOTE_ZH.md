@@ -361,6 +361,26 @@ autocomplete="current-password"
 
 一次手势确定方向后，中途不会在“滚动”和“切 Space”之间反复切换。
 
+### iPhone 切出 / 返回时的自动恢复
+
+iOS / iPadOS 会主动冻结甚至回收后台网页。为了避免 Safari / Chrome 在后台继续保留大块 VNC framebuffer、WebSocket 和剪贴板 SSE 连接，当前版本会主动管理页面生命周期：
+
+```text
+切出 noVNC
+→ 暂停普通 reconnect timer
+→ 关闭 Mac Clipboard EventSource
+→ 主动断开 RFB / WebSocket
+→ 释放当前 VNC canvas / framebuffer
+
+重新回到 noVNC
+→ 等待旧 RFB 对象完成清理
+→ 立即使用当前会话保存的认证信息重新连接
+→ 重启 Mac Clipboard EventSource
+→ 回到当前 iPhone 的 fit-to-screen 视图
+```
+
+因此短时间切换到其他 App 后再回来，不再依赖一个已经被 WebKit 冻结的旧 WebSocket。若 iOS 仍然因为系统内存压力直接终止整个网页进程，则浏览器只能重新加载页面；但后台主动释放 VNC 资源会显著降低这种情况发生的机会。
+
 ### 启动时默认显示整个桌面
 
 iPhone 每次重新进入 noVNC 时，当前页面会先使用 **Local scaling / fit-to-screen**，而不是直接进入 Left Drag 或 Pan：
