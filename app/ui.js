@@ -311,6 +311,8 @@ const UI = {
             .addEventListener('click', UI.sendEsc);
         document.getElementById("noVNC_send_ctrl_alt_del_button")
             .addEventListener('click', UI.sendCtrlAltDel);
+        document.getElementById("noVNC_send_select_all_button")
+            .addEventListener('click', UI.sendSelectAll);
     },
 
     addMachineHandlers() {
@@ -1722,6 +1724,14 @@ const UI = {
 
         UI.rfb.dragViewport = !UI.rfb.dragViewport;
         UI.updateViewDrag();
+
+        UI.showStatus(
+            UI.rfb.dragViewport ?
+                "Viewport pan mode" :
+                "Left mouse drag mode",
+            "normal",
+            2000
+        );
     },
 
     updateViewDrag() {
@@ -1738,8 +1748,12 @@ const UI = {
 
         if (UI.rfb.dragViewport) {
             viewDragButton.classList.add("noVNC_selected");
+            viewDragButton.title =
+                "Viewport pan mode — tap for left mouse drag";
         } else {
             viewDragButton.classList.remove("noVNC_selected");
+            viewDragButton.title =
+                "Left mouse drag mode — tap to pan viewport";
         }
 
         if (UI.rfb.clipViewport) {
@@ -2015,6 +2029,23 @@ const UI = {
     sendCtrlAltDel() {
         UI.rfb.sendCtrlAltDel();
         // See below
+        UI.rfb.focus();
+        UI.idleControlbar();
+    },
+
+    sendSelectAll() {
+        if (!UI.rfb) return;
+
+        UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
+        try {
+            UI.rfb.sendKey(
+                keysyms.lookup('a'.charCodeAt(0)),
+                "KeyA"
+            );
+        } finally {
+            UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
+        }
+
         UI.rfb.focus();
         UI.idleControlbar();
     },
