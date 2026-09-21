@@ -301,8 +301,8 @@ const UI = {
             .addEventListener('click', UI.toggleExtraKeys);
         document.getElementById("noVNC_toggle_ctrl_button")
             .addEventListener('click', UI.toggleCtrl);
-        document.getElementById("noVNC_toggle_alt_button")
-            .addEventListener('click', UI.toggleAlt);
+        document.getElementById("noVNC_toggle_option_button")
+            .addEventListener('click', UI.toggleOption);
         document.getElementById("noVNC_toggle_command_button")
             .addEventListener('click', UI.toggleCommand);
         document.getElementById("noVNC_send_tab_button")
@@ -2023,13 +2023,16 @@ const UI = {
         }
     },
 
-    toggleAlt() {
-        const btn = document.getElementById('noVNC_toggle_alt_button');
+    toggleOption() {
+        const btn = document.getElementById('noVNC_toggle_option_button');
         if (btn.classList.contains("noVNC_selected")) {
-            UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", false);
+            // Apple Screen Sharing maps XK_Alt_L to Command on some
+            // macOS VNC paths. Send Meta_L as a keysym-only event so
+            // Option has its own route and cannot fall back to AltLeft.
+            UI.rfb.sendKey(KeyTable.XK_Meta_L, null, false);
             btn.classList.remove("noVNC_selected");
         } else {
-            UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", true);
+            UI.rfb.sendKey(KeyTable.XK_Meta_L, null, true);
             btn.classList.add("noVNC_selected");
         }
     },
