@@ -299,12 +299,8 @@ const UI = {
     addExtraKeysHandlers() {
         document.getElementById("noVNC_toggle_extra_keys_button")
             .addEventListener('click', UI.toggleExtraKeys);
-        document.getElementById("noVNC_toggle_ctrl_button")
-            .addEventListener('click', UI.toggleCtrl);
-        document.getElementById("noVNC_toggle_windows_button")
-            .addEventListener('click', UI.toggleWindows);
-        document.getElementById("noVNC_toggle_alt_button")
-            .addEventListener('click', UI.toggleAlt);
+        document.getElementById("noVNC_toggle_command_button")
+            .addEventListener('click', UI.toggleCommand);
         document.getElementById("noVNC_send_tab_button")
             .addEventListener('click', UI.sendTab);
         document.getElementById("noVNC_send_esc_button")
@@ -315,6 +311,8 @@ const UI = {
             .addEventListener('click', UI.sendSelectAll);
         document.getElementById("noVNC_send_copy_button")
             .addEventListener('click', UI.sendCopy);
+        document.getElementById("noVNC_send_paste_button")
+            .addEventListener('click', UI.sendPaste);
     },
 
     addMachineHandlers() {
@@ -2012,35 +2010,13 @@ const UI = {
         UI.sendKey(KeyTable.XK_Tab, "Tab");
     },
 
-    toggleCtrl() {
-        const btn = document.getElementById('noVNC_toggle_ctrl_button');
-        if (btn.classList.contains("noVNC_selected")) {
-            UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", false);
-            btn.classList.remove("noVNC_selected");
-        } else {
-            UI.sendKey(KeyTable.XK_Control_L, "ControlLeft", true);
-            btn.classList.add("noVNC_selected");
-        }
-    },
-
-    toggleWindows() {
-        const btn = document.getElementById('noVNC_toggle_windows_button');
+    toggleCommand() {
+        const btn = document.getElementById('noVNC_toggle_command_button');
         if (btn.classList.contains("noVNC_selected")) {
             UI.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
             btn.classList.remove("noVNC_selected");
         } else {
             UI.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
-            btn.classList.add("noVNC_selected");
-        }
-    },
-
-    toggleAlt() {
-        const btn = document.getElementById('noVNC_toggle_alt_button');
-        if (btn.classList.contains("noVNC_selected")) {
-            UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", false);
-            btn.classList.remove("noVNC_selected");
-        } else {
-            UI.sendKey(KeyTable.XK_Alt_L, "AltLeft", true);
             btn.classList.add("noVNC_selected");
         }
     },
@@ -2077,6 +2053,23 @@ const UI = {
             UI.rfb.sendKey(
                 keysyms.lookup('c'.charCodeAt(0)),
                 "KeyC"
+            );
+        } finally {
+            UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
+        }
+
+        UI.rfb.focus();
+        UI.idleControlbar();
+    },
+
+    sendPaste() {
+        if (!UI.rfb) return;
+
+        UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
+        try {
+            UI.rfb.sendKey(
+                keysyms.lookup('v'.charCodeAt(0)),
+                "KeyV"
             );
         } finally {
             UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
