@@ -11,7 +11,7 @@ import Base64 from "./base64.js";
 import { toSigned32bit } from './util/int.js';
 
 export default class Display {
-    constructor(target) {
+    constructor(target, options = {}) {
         this._drawCtx = null;
 
         this._renderQ = [];  // queue drawing actions for in-oder rendering
@@ -22,6 +22,14 @@ export default class Display {
         this._fbHeight = 0;
 
         this._prevDrawStyle = "";
+
+        // On iPhone the visible canvas does not need a full remote-resolution
+        // backing store when it is being scaled down to fit the phone. Keep
+        // the full remote framebuffer only in _backbuffer and cap the visible
+        // presentation canvas close to its CSS size.
+        this._lowMemoryPresentation = !!options.lowMemoryPresentation;
+        this._presentationPixelRatio =
+            options.presentationPixelRatio || 1.25;
 
         Log.Debug(">> Display.constructor");
 
@@ -85,6 +93,51 @@ export default class Display {
 
     get height() {
         return this._fbHeight;
+    }
+
+    _presentationScale() {
+        if (!this._lowMemoryPresentation) {
+            return 1.0;
+        }
+
+        if (this._scale <= 0) {
+            return 0;
+        }
+
+        return Math.min(
+            1.0,
+            this._scale * this._presentationPixelRatio
+        );
+    }
+
+    _resizeTargetBackingStore() {
+        const vp = this._viewportLoc;
+        const presentationScale = this._presentationScale();
+
+        let width = vp.w;
+        let height = vp.h;
+
+        if (this._lowMemoryPresentation) {
+            width = Math.ceil(vp.w * presentationScale);
+            height = Math.ceil(vp.h * presentationScale);
+        }
+
+        if (width < 0) {
+            width = 0;
+        }
+        if (height < 0) {
+            height = 0;
+        }
+
+        if (this._target.width === width &&
+            this._target.height === height) {
+            return false;
+        }
+
+        // Changing canvas width/height releases its previous pixel backing.
+        this._target.width = width;
+        this._target.height = height;
+        return true;
     }
 
     // ===== PUBLIC METHODS =====
@@ -157,18 +210,16 @@ export default class Display {
             vp.w = width;
             vp.h = height;
 
-            const canvas = this._target;
-            canvas.width = width;
-            canvas.height = height;
+            // Update the CSS size and the presentation backing store before
+            // drawing. In low-memory mode the visible canvas is usually much
+            // smaller than the full remote framebuffer.
+            this._rescale(this._scale, false);
 
             // The position might need to be updated if we've grown
             this.viewportChangePos(0, 0);
 
             this._damage(vp.x, vp.y, vp.w, vp.h);
             this.flip();
-
-            // Update the visible size of the target canvas
-            this._rescale(this._scale);
         }
     }
 
@@ -211,11 +262,17 @@ export default class Display {
 
         const canvas = this._backbuffer;
         if (canvas.width !== width || canvas.height !== height) {
-
-            // We have to save the canvas data since changing the size will clear it
             let saveImg = null;
-            if (canvas.width > 0 && canvas.height > 0) {
-                saveImg = this._drawCtx.getImageData(0, 0, canvas.width, canvas.height);
+
+            // Desktop noVNC keeps the old framebuffer through a resize. On
+            // iPhone that temporary full-frame ImageData can add tens of MiB
+            // at exactly the wrong time, so low-memory mode deliberately
+            // clears and lets the next VNC update repaint the screen.
+            if (!this._lowMemoryPresentation &&
+                canvas.width > 0 && canvas.height > 0) {
+                saveImg = this._drawCtx.getImageData(
+                    0, 0, canvas.width, canvas.height
+                );
             }
 
             if (canvas.width !== width) {
@@ -303,9 +360,21 @@ export default class Display {
                 // FIXME: We may need to disable image smoothing here
                 //        as well (see copyImage()), but we haven't
                 //        noticed any problem yet.
-                this._targetCtx.drawImage(this._backbuffer,
-                                          x, y, w, h,
-                                          vx, vy, w, h);
+                const targetScaleX =
+                    this._viewportLoc.w > 0 ?
+                        this._target.width / this._viewportLoc.w : 1;
+                const targetScaleY =
+                    this._viewportLoc.h > 0 ?
+                        this._target.height / this._viewportLoc.h : 1;
+
+                this._targetCtx.drawImage(
+                    this._backbuffer,
+                    x, y, w, h,
+                    vx * targetScaleX,
+                    vy * targetScaleY,
+                    w * targetScaleX,
+                    h * targetScaleY
+                );
             }
 
             this._damageBounds.left = this._damageBounds.top = 65535;
@@ -470,14 +539,12 @@ export default class Display {
 
     // ===== PRIVATE METHODS =====
 
-    _rescale(factor) {
+    _rescale(factor, redraw = true) {
         this._scale = factor;
         const vp = this._viewportLoc;
 
-        // NB(directxman12): If you set the width directly, or set the
-        //                   style width to a number, the canvas is cleared.
-        //                   However, if you set the style width to a string
-        //                   ('NNNpx'), the canvas is scaled without clearing.
+        // Keep the CSS geometry in remote-coordinate scale so pointer math is
+        // unchanged, while the intrinsic canvas can be much smaller on iOS.
         const width = factor * vp.w + 'px';
         const height = factor * vp.h + 'px';
 
@@ -485,6 +552,13 @@ export default class Display {
             (this._target.style.height !== height)) {
             this._target.style.width = width;
             this._target.style.height = height;
+        }
+
+        const backingChanged = this._resizeTargetBackingStore();
+
+        if (redraw && backingChanged && vp.w > 0 && vp.h > 0) {
+            this._damage(vp.x, vp.y, vp.w, vp.h);
+            this.flip();
         }
     }
 
