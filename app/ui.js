@@ -55,6 +55,8 @@ const UI = {
     macClipboardText: null,
     macClipboardPending: false,
 
+    latencyDebugOverlay: null,
+
     async start(options={}) {
         UI.customSettings = options.settings || {};
         if (UI.customSettings.defaults === undefined) {
@@ -1416,6 +1418,49 @@ const UI = {
 /* ------^-------
  *  /CLIPBOARD
  * ==============
+ * LATENCY DEBUG
+ * ------v------*/
+
+    latencyDebugEnabled() {
+        const value = WebUtil.getConfigVar('latency_debug');
+        if (value === null) {
+            return false;
+        }
+
+        return ["1", "true", "yes", "on"]
+            .includes(String(value).toLowerCase());
+    },
+
+    ensureLatencyDebugOverlay() {
+        if (UI.latencyDebugOverlay !== null) {
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = "noVNC_latency_debug";
+        overlay.textContent = "Latency\nwaiting for input…";
+        document.body.appendChild(overlay);
+        UI.latencyDebugOverlay = overlay;
+    },
+
+    updateLatencyDebug(e) {
+        UI.ensureLatencyDebugOverlay();
+
+        const detail = e.detail;
+        const recv = detail.recvMs.toFixed(1);
+        const render = detail.renderMs.toFixed(1);
+        const total = detail.totalMs.toFixed(1);
+
+        UI.latencyDebugOverlay.textContent =
+            "Latency " + detail.kind + "\n" +
+            "recv   " + recv + " ms\n" +
+            "render " + render + " ms\n" +
+            "total  " + total + " ms";
+    },
+
+/* ------^-------
+ * /LATENCY DEBUG
+ * ==============
  *  CONNECTION
  * ------v------*/
 
@@ -1489,12 +1534,15 @@ const UI = {
             url.protocol = (window.location.protocol === "https:") ? 'wss:' : 'ws:';
         }
 
+        const latencyDebug = UI.latencyDebugEnabled();
+
         try {
             UI.rfb = new RFB(document.getElementById('noVNC_container'),
                              url.href,
                              { shared: UI.getSetting('shared'),
                                repeaterID: UI.getSetting('repeaterID'),
-                               credentials: credentials });
+                               credentials: credentials,
+                               latencyDebug: latencyDebug });
         } catch (exc) {
             Log.Error("Failed to connect to server: " + exc);
             UI.updateVisualState('disconnected');
@@ -1512,6 +1560,10 @@ const UI = {
 
         UI.rfb.addEventListener("bell", UI.bell);
         UI.rfb.addEventListener("desktopname", UI.updateDesktopName);
+        if (latencyDebug) {
+            UI.ensureLatencyDebugOverlay();
+            UI.rfb.addEventListener("latencydebug", UI.updateLatencyDebug);
+        }
         UI.rfb.clipViewport = UI.getSetting('view_clip');
         UI.rfb.scaleViewport = UI.getSetting('resize') === 'scale';
         UI.rfb.resizeSession = UI.getSetting('resize') === 'remote';

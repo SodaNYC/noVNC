@@ -711,6 +711,45 @@ Mac → iPhone 剪贴板的 SSE 也会受到相同的 iOS 后台挂起限制；�
 
 ---
 
+### Latency Debug：定位延迟在哪一层
+
+本分支提供一个默认关闭的轻量延迟诊断模式。正常访问时不会启用，也不会增加每次 framebuffer update 的日志开销。
+
+在 noVNC URL 后增加：
+
+```text
+?latency_debug=1
+```
+
+如果原 URL 已经有查询参数，则追加：
+
+```text
+&latency_debug=1
+```
+
+连接成功后，页面右上角会出现一个小型 `Latency` 浮层。点击远端界面或按键后，会显示最近一次可关联画面更新的三个时间：
+
+```text
+Latency pointer
+recv    38.2 ms
+render   7.4 ms
+total   45.6 ms
+```
+
+含义：
+
+- `recv`：从 noVNC **发送按键 / 鼠标按下事件**，到收到下一次完整 framebuffer update 头部的时间。这里包含 iPhone → Mac 网络、Mac VNC Server 处理、编码以及返回路径，所以它**不是纯网络 RTT**。
+- `render`：从收到该 framebuffer update，到 noVNC 的 Display 队列处理完成并进入下一次浏览器绘制帧的时间，主要反映解码、Canvas / Safari 绘制一侧的开销。
+- `total`：从输入发送到浏览器准备呈现该画面的总时间，近似用户感受到的“点下去 → 画面出现变化”的延迟。
+
+同样的数据也会输出到浏览器控制台，格式为 `[noVNC latency]`。
+
+这是**诊断相关性指标**，不是协议级因果追踪：如果远端画面本身持续变化，下一次 framebuffer update 可能并非完全由刚才那次输入触发。因此测试时最好在相对静止的桌面上，单次点击菜单、窗口按钮或输入单个字符，再观察数值。
+
+测试结束后删除 `latency_debug=1` 即可恢复正常模式。
+
+---
+
 ### macOS VNC 动态画面帧率有限
 
 当前 Apple Screen Sharing 实测主要使用：
@@ -810,9 +849,9 @@ vnc.html
 
 其中：
 
-- `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势
-- `app/ui.js`：双向剪贴板、SSE、Paste to Mac、自动重连与凭据复用前端行为
-- `app/styles/base.css`：Mac clipboard 新内容提示样式
+- `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势，以及可选的输入 → framebuffer → render 延迟诊断
+- `app/ui.js`：双向剪贴板、SSE、Paste to Mac、自动重连与凭据复用前端行为，以及 Latency Debug 浮层
+- `app/styles/base.css`：Mac clipboard 新内容提示与 Latency Debug 浮层样式
 - `vnc.html`：双向 Clipboard 面板与 iOS 密码自动填充字段提示
 
 为让 GitHub Actions 与本定制版行为一致，还包含少量开发/测试辅助修改：

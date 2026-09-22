@@ -121,6 +121,9 @@ export default class RFB extends EventTargetMixin {
         this._shared = 'shared' in options ? !!options.shared : true;
         this._repeaterID = options.repeaterID || '';
         this._wsProtocols = options.wsProtocols || [];
+        this._latencyDebug = !!options.latencyDebug;
+        this._latencyDebugSequence = 0;
+        this._latencyDebugPending = null;
 
         // Internal state
         this._rfbConnectionState = '';
@@ -512,6 +515,63 @@ export default class RFB extends EventTargetMixin {
         this._xvpOp(1, 4);
     }
 
+    _startLatencyDebug(kind) {
+        if (!this._latencyDebug) {
+            return;
+        }
+
+        const sample = {
+            sequence: ++this._latencyDebugSequence,
+            kind: kind,
+            sentAt: performance.now(),
+            receivedAt: null,
+        };
+        this._latencyDebugPending = sample;
+
+        console.info("[noVNC latency] input sent", {
+            sequence: sample.sequence,
+            kind: sample.kind,
+        });
+    }
+
+    _markLatencyDebugFramebufferReceived() {
+        if (!this._latencyDebugPending ||
+            this._latencyDebugPending.receivedAt !== null) {
+            return;
+        }
+
+        this._latencyDebugPending.receivedAt = performance.now();
+    }
+
+    _finishLatencyDebugFrame() {
+        const sample = this._latencyDebugPending;
+        if (!sample || sample.receivedAt === null) {
+            return;
+        }
+
+        // Detach this sample now so a new input can start measuring while the
+        // browser finishes presenting this frame.
+        this._latencyDebugPending = null;
+
+        this._display.flush().then(() => {
+            requestAnimationFrame(() => {
+                const renderedAt = performance.now();
+                const detail = {
+                    sequence: sample.sequence,
+                    kind: sample.kind,
+                    recvMs: sample.receivedAt - sample.sentAt,
+                    renderMs: renderedAt - sample.receivedAt,
+                    totalMs: renderedAt - sample.sentAt,
+                };
+
+                console.info("[noVNC latency]", detail);
+                this.dispatchEvent(new CustomEvent(
+                    "latencydebug",
+                    { detail: detail }));
+            });
+        });
+    }
+
     // Send a key press. If 'down' is not specified then send a down key
     // followed by an up key.
     sendKey(keysym, code, down) {
@@ -529,12 +589,19 @@ export default class RFB extends EventTargetMixin {
             // 0 is NoSymbol
             keysym = keysym || 0;
 
+            if (down) {
+                this._startLatencyDebug(code ? "key:" + code : "key");
+            }
+
             Log.Info("Sending key (" + (down ? "down" : "up") + "): keysym " + keysym + ", scancode " + scancode);
 
             RFB.messages.QEMUExtendedKeyEvent(this._sock, keysym, down, scancode);
         } else {
             if (!keysym) {
                 return;
+            }
+            if (down) {
+                this._startLatencyDebug(code ? "key:" + code : "key");
             }
             Log.Info("Sending keysym (" + (down ? "down" : "up") + "): " + keysym);
             RFB.messages.keyEvent(this._sock, keysym, down ? 1 : 0);
@@ -1230,7 +1297,11 @@ export default class RFB extends EventTargetMixin {
         // Flush waiting move event first
         this._flushMouseMoveTimer(x, y);
 
+        const previousMask = this._mouseButtonMask;
         this._mouseButtonMask = bmask;
+        if (bmask !== 0 && bmask !== previousMask) {
+            this._startLatencyDebug("pointer");
+        }
         this._sendMouse(x, y, this._mouseButtonMask);
     }
 
@@ -2820,6 +2891,7 @@ export default class RFB extends EventTargetMixin {
             if (this._sock.rQwait("FBU header", 3, 1)) { return false; }
             this._sock.rQskipBytes(1);  // Padding
             this._FBU.rects = this._sock.rQshift16();
+            this._markLatencyDebugFramebufferReceived();
 
             // Make sure the previous frame is fully rendered first
             // to avoid building up an excessive queue
@@ -2860,6 +2932,7 @@ export default class RFB extends EventTargetMixin {
         }
 
         this._display.flip();
+        this._finishLatencyDebugFrame();
 
         return true;  // We finished this FBU
     }
