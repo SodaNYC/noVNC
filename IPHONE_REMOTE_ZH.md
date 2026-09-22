@@ -706,10 +706,10 @@ iPhone 上的 noVNC 现在启用专用的 **low-memory presentation**。VNC 协�
 Mac 完整 framebuffer
 → 保留一份完整 backbuffer，保证 VNC 解码 / CopyRect / 鼠标坐标准确
 → 按当前缩放比例绘制到较小的 iPhone presentation canvas
-→ presentation canvas 目标约为 CSS 显示尺寸的 1.25 倍，且永远不超过远端原始尺寸
+→ presentation canvas 目标约为 CSS 显示尺寸的 1.25 倍，且最长边硬限制为 1024px
 ```
 
-例如 Mac 是 2560×1440，而 iPhone fit-to-screen 后实际只显示约 390px 宽，旧实现的可见 canvas 仍可能保持接近 2560×1440；当前实现会把可见 presentation backing 降到大约 488px 宽这一档，只保留隐藏 backbuffer 为完整分辨率。这样能明显减少 Safari WebKit 的 canvas / GPU texture 常驻内存。
+例如 Mac 是 2560×1440，而 iPhone fit-to-screen 后实际只显示约 390px 宽，旧实现的可见 canvas 仍可能保持接近 2560×1440；当前实现会把可见 presentation backing 降到大约 488px 宽这一档，只保留隐藏 backbuffer 为完整分辨率。即使 fit-to-screen 比例尚未算出来，可见 canvas 最长边也不会短暂冲到 Retina 桌面原始尺寸，而是先被 1024px 硬上限拦住。这样能明显减少 Safari WebKit 的 canvas / GPU texture 常驻内存和连接初期的瞬时峰值。
 
 另外，iPhone 模式下 framebuffer 尺寸发生变化时不再调用整屏 `getImageData()` 复制旧 framebuffer。resize 会直接清空并等待下一次 VNC framebuffer update 重画，避免 Retina 分辨率下瞬间再申请一整张几十 MiB 的临时像素副本。
 
