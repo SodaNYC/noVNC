@@ -449,15 +449,30 @@ Command (⌘)
 
 三者都可以单独切换为按住 / 释放状态。针对当前 Apple Screen Sharing / macOS VNC 行为，**Control 和 Option 都使用 keysym-only 路径**，避免走容易被 macOS 错误映射的 XT scancode：Control 发送 `XK_Control_L`，Option 发送 `XK_Meta_L`；Command 继续使用 `XK_Super_L`。原来的 **Ctrl+Alt+Del（三个方块）** 快捷按钮已经移除，因为在当前 Mac 远控场景里基本用不到。
 
-面板里的高频编辑操作继续提供独立图标：
+面板里的常用按键与编辑操作继续提供独立图标：
 
 ```text
+Tab
+Esc
+Return / Enter
 Select All
 Copy
 Paste
 ```
 
-Control、Option、Command、Select All、Copy、Paste 都使用 25×25 SVG 画布，并统一以 **18px 最大视觉跨度**围绕 12.5 / 12.5 中心校正。Control、Option、Command 统一为 2px 圆角线条风格；Select All、Copy、Paste 也保持 2px 线宽。Control / Option 因符号本身较扁，实际高度自然较小，但不会人为拉伸变形。
+Control、Option、Command、Return、Select All、Copy、Paste 都使用 25×25 SVG 画布，并统一以 **18px 最大视觉跨度**围绕 12.5 / 12.5 中心校正。自定义图标统一使用 2px 圆角线条风格；Control / Option 因符号本身较扁，实际高度自然较小，但不会人为拉伸变形。
+
+### 回车 / Return
+
+Extra keys 中新增 **Return / Enter** 图标（弯折回车箭头），点击后直接向远端 Mac 发送标准回车键：
+
+```text
+Return / Enter
+→ XK_Return
+→ DOM code: Enter
+```
+
+可用于提交输入框、执行终端命令、确认对话框，以及任何正常响应 macOS Return / Enter 键的界面。图标使用与其他自定义按钮相同的 25×25 画布、2px 圆角线条，并按 18px 最大视觉跨度居中。
 
 ### 全选
 
