@@ -23,7 +23,7 @@ import Cursor from "./util/cursor.js";
 import Websock from "./websock.js";
 import KeyTable from "./input/keysym.js";
 import XtScancode from "./input/xtscancodes.js";
-import { encodings, encodingName } from "./encodings.js";
+import { encodings } from "./encodings.js";
 import RSAAESAuthenticationState from "./ra2.js";
 import legacyCrypto from "./crypto/crypto.js";
 
@@ -121,10 +121,6 @@ export default class RFB extends EventTargetMixin {
         this._shared = 'shared' in options ? !!options.shared : true;
         this._repeaterID = options.repeaterID || '';
         this._wsProtocols = options.wsProtocols || [];
-        this._latencyDebug = !!options.latencyDebug;
-        this._latencyDebugSequence = 0;
-        this._latencyDebugWindow = null;
-        this._latencyDebugTimer = null;
 
         // Internal state
         this._rfbConnectionState = '';
@@ -473,9 +469,6 @@ export default class RFB extends EventTargetMixin {
 
         clearTimeout(this._disconnTimer);
         this._disconnTimer = null;
-        clearTimeout(this._latencyDebugTimer);
-        this._latencyDebugTimer = null;
-        this._latencyDebugWindow = null;
 
         this._display.release();
         this._sock.dispose();
@@ -519,166 +512,6 @@ export default class RFB extends EventTargetMixin {
         this._xvpOp(1, 4);
     }
 
-    _latencyDebugDetail(sample, phase) {
-        const now = performance.now();
-        const firstFbuMs = sample.firstFbuHeaderAt === null ?
-            null : sample.firstFbuHeaderAt - sample.sentAt;
-        const payloadDecodeMs =
-            sample.firstFbuHeaderAt === null || sample.firstFbuCompleteAt === null ?
-                null : sample.firstFbuCompleteAt - sample.firstFbuHeaderAt;
-        const decodeCpuMs = sample.firstFbuCompleteAt === null ?
-            null : sample.firstFbuDecodeCpuMs;
-        const payloadWaitMs =
-            payloadDecodeMs === null || decodeCpuMs === null ?
-                null : Math.max(0, payloadDecodeMs - decodeCpuMs);
-        const displayMs =
-            sample.firstFbuCompleteAt === null || sample.firstDisplayDoneAt === null ?
-                null : sample.firstDisplayDoneAt - sample.firstFbuCompleteAt;
-        const presentMs =
-            sample.firstDisplayDoneAt === null || sample.firstPresentedAt === null ?
-                null : sample.firstPresentedAt - sample.firstDisplayDoneAt;
-        const totalMs = sample.firstPresentedAt === null ?
-            null : sample.firstPresentedAt - sample.sentAt;
-        const windowMs = Math.min(now - sample.sentAt, 2000);
-        const wsRxBytes = Math.max(0, this._sock.receivedBytes - sample.wsBytesStart);
-
-        const encodingCounts = Object.entries(sample.encodingCounts)
-            .map(([name, count]) => ({ name: name, count: count }))
-            .sort((a, b) => b.count - a.count);
-
-        return {
-            phase: phase,
-            sequence: sample.sequence,
-            kind: sample.kind,
-            framebufferWidth: this._fbWidth,
-            framebufferHeight: this._fbHeight,
-            firstFbuMs: firstFbuMs,
-            payloadWaitMs: payloadWaitMs,
-            decodeCpuMs: decodeCpuMs,
-            payloadDecodeMs: payloadDecodeMs,
-            displayMs: displayMs,
-            presentMs: presentMs,
-            totalMs: totalMs,
-            windowMs: windowMs,
-            fbuCount: sample.fbuCount,
-            fbuRate: windowMs > 0 ? sample.fbuCount * 1000 / windowMs : 0,
-            maxFbuGapMs: sample.maxFbuGapMs,
-            wsRxBytes: wsRxBytes,
-            encodingCounts: encodingCounts,
-        };
-    }
-
-    _dispatchLatencyDebug(sample, phase) {
-        const detail = this._latencyDebugDetail(sample, phase);
-        Log.Info("[noVNC latency] " + JSON.stringify(detail));
-        this.dispatchEvent(new CustomEvent(
-            "latencydebug",
-            { detail: detail }));
-    }
-
-    _startLatencyDebug(kind) {
-        if (!this._latencyDebug || this._latencyDebugWindow !== null) {
-            return;
-        }
-
-        const now = performance.now();
-        const sample = {
-            sequence: ++this._latencyDebugSequence,
-            kind: kind,
-            sentAt: now,
-            wsBytesStart: this._sock.receivedBytes,
-            firstFbuHeaderAt: null,
-            firstFbuCompleteAt: null,
-            firstFbuDecodeCpuMs: 0,
-            firstDisplayDoneAt: null,
-            firstPresentedAt: null,
-            firstPresentScheduled: false,
-            windowFinished: false,
-            fbuCount: 0,
-            lastFbuHeaderAt: null,
-            maxFbuGapMs: 0,
-            encodingCounts: {},
-        };
-        this._latencyDebugWindow = sample;
-
-        this._dispatchLatencyDebug(sample, "start");
-
-        this._latencyDebugTimer = setTimeout(() => {
-            if (this._latencyDebugWindow !== sample) {
-                return;
-            }
-            sample.windowFinished = true;
-            this._dispatchLatencyDebug(sample, "window");
-            this._latencyDebugWindow = null;
-            this._latencyDebugTimer = null;
-        }, 2000);
-    }
-
-    _markLatencyDebugFramebufferReceived() {
-        const sample = this._latencyDebugWindow;
-        if (!sample) {
-            return;
-        }
-
-        const now = performance.now();
-        if (sample.firstFbuHeaderAt === null) {
-            sample.firstFbuHeaderAt = now;
-        }
-
-        if (sample.lastFbuHeaderAt !== null) {
-            sample.maxFbuGapMs = Math.max(
-                sample.maxFbuGapMs,
-                now - sample.lastFbuHeaderAt
-            );
-        }
-        sample.lastFbuHeaderAt = now;
-        sample.fbuCount++;
-    }
-
-    _recordLatencyDebugEncoding(encoding) {
-        const sample = this._latencyDebugWindow;
-        if (!sample) {
-            return;
-        }
-
-        const name = encodingName(encoding);
-        if (name.startsWith("[unknown encoding ")) {
-            return;
-        }
-
-        sample.encodingCounts[name] =
-            (sample.encodingCounts[name] || 0) + 1;
-    }
-
-    _markLatencyDebugFramebufferComplete() {
-        const sample = this._latencyDebugWindow;
-        if (!sample || sample.firstFbuHeaderAt === null ||
-            sample.firstFbuCompleteAt !== null) {
-            return;
-        }
-
-        sample.firstFbuCompleteAt = performance.now();
-    }
-
-    _finishLatencyDebugFrame() {
-        const sample = this._latencyDebugWindow;
-        if (!sample || sample.firstFbuCompleteAt === null ||
-            sample.firstPresentedAt !== null || sample.firstPresentScheduled) {
-            return;
-        }
-
-        sample.firstPresentScheduled = true;
-        this._display.flush().then(() => {
-            sample.firstDisplayDoneAt = performance.now();
-            requestAnimationFrame(() => {
-                sample.firstPresentedAt = performance.now();
-                if (!sample.windowFinished) {
-                    this._dispatchLatencyDebug(sample, "first-frame");
-                }
-            });
-        });
-    }
-
     // Send a key press. If 'down' is not specified then send a down key
     // followed by an up key.
     sendKey(keysym, code, down) {
@@ -696,19 +529,12 @@ export default class RFB extends EventTargetMixin {
             // 0 is NoSymbol
             keysym = keysym || 0;
 
-            if (down) {
-                this._startLatencyDebug(code ? "key:" + code : "key");
-            }
-
             Log.Info("Sending key (" + (down ? "down" : "up") + "): keysym " + keysym + ", scancode " + scancode);
 
             RFB.messages.QEMUExtendedKeyEvent(this._sock, keysym, down, scancode);
         } else {
             if (!keysym) {
                 return;
-            }
-            if (down) {
-                this._startLatencyDebug(code ? "key:" + code : "key");
             }
             Log.Info("Sending keysym (" + (down ? "down" : "up") + "): " + keysym);
             RFB.messages.keyEvent(this._sock, keysym, down ? 1 : 0);
@@ -1404,11 +1230,7 @@ export default class RFB extends EventTargetMixin {
         // Flush waiting move event first
         this._flushMouseMoveTimer(x, y);
 
-        const previousMask = this._mouseButtonMask;
         this._mouseButtonMask = bmask;
-        if (bmask !== 0 && bmask !== previousMask) {
-            this._startLatencyDebug("pointer");
-        }
         this._sendMouse(x, y, this._mouseButtonMask);
     }
 
@@ -2998,7 +2820,6 @@ export default class RFB extends EventTargetMixin {
             if (this._sock.rQwait("FBU header", 3, 1)) { return false; }
             this._sock.rQskipBytes(1);  // Padding
             this._FBU.rects = this._sock.rQshift16();
-            this._markLatencyDebugFramebufferReceived();
 
             // Make sure the previous frame is fully rendered first
             // to avoid building up an excessive queue
@@ -3028,7 +2849,6 @@ export default class RFB extends EventTargetMixin {
                 this._FBU.encoding = this._sock.rQshift32();
                 /* Encodings are signed */
                 this._FBU.encoding >>= 0;
-                this._recordLatencyDebugEncoding(this._FBU.encoding);
             }
 
             if (!this._handleRect()) {
@@ -3039,9 +2859,7 @@ export default class RFB extends EventTargetMixin {
             this._FBU.encoding = null;
         }
 
-        this._markLatencyDebugFramebufferComplete();
         this._display.flip();
-        this._finishLatencyDebugFrame();
 
         return true;  // We finished this FBU
     }
@@ -3364,13 +3182,6 @@ export default class RFB extends EventTargetMixin {
             return false;
         }
 
-        const latencySample = this._latencyDebugWindow;
-        const measureDecode =
-            latencySample !== null &&
-            latencySample.firstFbuHeaderAt !== null &&
-            latencySample.firstFbuCompleteAt === null;
-        const decodeStart = measureDecode ? performance.now() : 0;
-
         try {
             return decoder.decodeRect(this._FBU.x, this._FBU.y,
                                       this._FBU.width, this._FBU.height,
@@ -3379,11 +3190,6 @@ export default class RFB extends EventTargetMixin {
         } catch (err) {
             this._fail("Error decoding rect: " + err);
             return false;
-        } finally {
-            if (measureDecode) {
-                latencySample.firstFbuDecodeCpuMs +=
-                    performance.now() - decodeStart;
-            }
         }
     }
 

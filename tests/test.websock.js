@@ -61,19 +61,6 @@ describe('Websock', function () {
             });
         });
 
-        describe('receivedBytes', function () {
-            it('should count raw bytes independently of queue consumption', function () {
-                websock._receiveData(new Uint8Array([0x01, 0x02, 0x03]));
-                expect(sock.receivedBytes).to.equal(3);
-
-                sock.rQshift16();
-                expect(sock.receivedBytes).to.equal(3);
-
-                websock._receiveData(new Uint8Array([0x04, 0x05]));
-                expect(sock.receivedBytes).to.equal(5);
-            });
-        });
-
         describe('rQshiftStr', function () {
             it('should shift the given number of bytes off of the receive queue and return a string', function () {
                 websock._receiveData(new Uint8Array([0xab, 0xcd, 0x12, 0x34,

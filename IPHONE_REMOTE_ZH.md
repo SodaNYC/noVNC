@@ -711,73 +711,6 @@ Mac → iPhone 剪贴板的 SSE 也会受到相同的 iOS 后台挂起限制；�
 
 ---
 
-### Latency Debug：定位延迟在哪一层
-
-本分支提供一个默认关闭的两阶段延迟诊断模式。正常访问时不会做逐 FBU / 逐矩形统计。
-
-在 noVNC URL 后增加：
-
-```text
-?latency_debug=1
-```
-
-如果原 URL 已经有查询参数，则追加：
-
-```text
-&latency_debug=1
-```
-
-每次开始一次测试后，诊断窗口固定观察 **2 秒**。这 2 秒内后续按键 / 滚轮事件不会重新开始计时，因此可以完整观察窗口动画、Finder 更新和连续滚动。2 秒结束后，再进行下一次独立测试。
-
-连接成功后，页面右上角会显示类似：
-
-```text
-Latency pointer
-FB 2560×1440
-first FBU    42.1 ms
-payload wait 101.2 ms
-decode CPU    17.5 ms
-display        6.3 ms
-present      10.5 ms
-total       177.6 ms
-FBU 2s      17 (8.5/s)
-max gap     241.0 ms
-WS rx       8.72 MiB
-enc         ZRLE×31 Zlib×4
-```
-
-各指标含义：
-
-- `FB`：当前 VNC framebuffer 的真实像素尺寸。它比 iPhone 上缩放后的 CSS 显示尺寸更重要，因为 Mac VNC Server 实际需要处理的是这个 framebuffer。
-- `first FBU`：从 noVNC 发送鼠标按下 / 按键，到收到第一组 FramebufferUpdate 头部的时间。这里包含输入上行、Mac 响应以及第一批 VNC 更新开始返回的时间。
-- `payload wait`：第一组 FBU 头部出现后，扣除实际 decoder 同步执行时间后剩余的等待时间。它主要反映等待后续 WebSocket / RFB payload 到达，但也包含少量 FBU/矩形头解析等没有单独计时的开销，因此是**近似的网络/服务器发送等待时间**。
-- `decode CPU`：第一组 FBU 内所有数据矩形调用 noVNC decoder 时，同步 JavaScript 执行时间的累计值。当前 Apple Screen Sharing 如果使用 ZRLE，这一项主要反映 ZRLE 解码和像素展开的前端 CPU 成本。
-- `display`：第一组 FBU 数据处理完成后，到 noVNC Display 渲染队列清空的时间。
-- `present`：Display 队列完成后，到浏览器下一次 `requestAnimationFrame` 的时间，用于观察 Safari 最终呈现调度是否明显阻塞。
-- `total`：从输入发送到第一组相关画面准备呈现的总时间。
-- `FBU 2s`：这次输入后的 2 秒观察窗内收到多少组 FramebufferUpdate，以及平均每秒多少组。这里是 **FBU/s，不等同于视频意义上的真实 FPS**。
-- `max gap`：2 秒内相邻两组 FBU 头部之间最大的间隔。数值很大时，说明更新流中存在明显停顿。
-- `WS rx`：2 秒内 WebSocket 从服务器收到的总字节量。它包含少量 RFB 控制消息，但远程桌面活动时绝大多数通常是 framebuffer 数据，可用于比较不同场景的数据压力。
-- `enc`：2 秒内实际 framebuffer 矩形使用的主要编码及矩形次数，例如 `ZRLE×31 Zlib×4`。
-
-推荐逐项测试，每项之间必须等右上角 2 秒统计完成：
-
-```text
-A. TextEdit 输入一个 a，然后 2 秒不要操作
-B. TextEdit 点一次 Backspace，然后 2 秒不要操作
-C. TextEdit 点一次 Return，然后 2 秒不要操作
-D. Finder 单击一个文件，然后 2 秒不要操作
-E. Finder 点黄色最小化，然后 2 秒不要再操作
-F. Finder 点绿色全屏，然后 2 秒不要再操作
-G. Finder / Safari 开始连续滚动约 1.5 秒，然后停下
-```
-
-E / F / G 是新版诊断最重要的场景。旧版只看第一帧，无法反映最小化动画或滚动过程中后续 framebuffer update 是否持续卡顿；新版会把后续 2 秒一起统计。
-
-测试结束后删除 `latency_debug=1` 即恢复正常模式。
-
----
-
 ### macOS VNC 动态画面帧率有限
 
 当前 Apple Screen Sharing 实测主要使用：
@@ -877,9 +810,9 @@ vnc.html
 
 其中：
 
-- `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势，以及可选的输入 → framebuffer → render 延迟诊断
-- `app/ui.js`：双向剪贴板、SSE、Paste to Mac、自动重连与凭据复用前端行为，以及 Latency Debug 浮层
-- `app/styles/base.css`：Mac clipboard 新内容提示与 Latency Debug 浮层样式
+- `core/rfb.js`：缩放、滚动、viewport、Space、全屏手势
+- `app/ui.js`：双向剪贴板、SSE、Paste to Mac、自动重连与凭据复用前端行为
+- `app/styles/base.css`：Mac clipboard 新内容提示样式
 - `vnc.html`：双向 Clipboard 面板与 iOS 密码自动填充字段提示
 
 为让 GitHub Actions 与本定制版行为一致，还包含少量开发/测试辅助修改：

@@ -213,23 +213,6 @@ html {
     overflow: auto;
 }
 
-/* Optional latency diagnostic overlay. Only created when latency_debug=1. */
-#noVNC_latency_debug {
-    position: fixed;
-    top: max(8px, env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right));
-    z-index: 120;
-    pointer-events: none;
-    min-width: 210px;
-    padding: 7px 9px;
-    border-radius: 7px;
-    background: rgba(0, 0, 0, 0.72);
-    color: #fff;
-    font: 12px/1.35 monospace;
-    white-space: pre;
-    text-align: left;
-}
-
 /* ----------------------------------------
  * Control bar
  * ----------------------------------------
