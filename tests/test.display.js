@@ -120,6 +120,12 @@ describe('Display/Canvas helper', function () {
             );
 
             display.resize(2000, 1000);
+
+            // Even before fit-to-screen scale is known, the visible canvas
+            // must never jump to a full 2000px backing width.
+            expect(canvas.width).to.equal(1024);
+            expect(canvas.height).to.equal(512);
+
             display.scale = 0.2;
 
             expect(canvas.width).to.equal(500);
