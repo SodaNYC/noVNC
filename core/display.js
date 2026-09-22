@@ -30,6 +30,8 @@ export default class Display {
         this._lowMemoryPresentation = !!options.lowMemoryPresentation;
         this._presentationPixelRatio =
             options.presentationPixelRatio || 1.25;
+        this._presentationMaxDimension =
+            options.presentationMaxDimension || 1024;
 
         Log.Debug(">> Display.constructor");
 
@@ -120,6 +122,17 @@ export default class Display {
         if (this._lowMemoryPresentation) {
             width = Math.ceil(vp.w * presentationScale);
             height = Math.ceil(vp.h * presentationScale);
+
+            // Never allocate a full Retina-size visible canvas during the
+            // short interval before fit-to-screen scaling is calculated.
+            // Preserve aspect ratio when applying the cap.
+            const largest = Math.max(width, height);
+            if (largest > this._presentationMaxDimension) {
+                const capScale =
+                    this._presentationMaxDimension / largest;
+                width = Math.ceil(width * capScale);
+                height = Math.ceil(height * capScale);
+            }
         }
 
         if (width < 0) {
