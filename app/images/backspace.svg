@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      width="25" height="25" viewBox="0 0 25 25">
-  <!-- Backspace: left-pointing delete key with X, matching custom 2px icon style. -->
+  <!-- Backspace: centered at 12.5/12.5, ~18px max visual span, 2px stroke. -->
   <g fill="none" stroke="#ffffff" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 5.5H10.5L4 12.5L10.5 19.5H21C22.105 19.5 23 18.605 23 17.5V7.5C23 6.395 22.105 5.5 21 5.5Z"/>
+    <path d="M21.5 6.5H10.5L3.5 12.5L10.5 18.5H21.5V6.5Z"/>
     <path d="M13.5 9.5L18.5 15.5"/>
     <path d="M18.5 9.5L13.5 15.5"/>
   </g>

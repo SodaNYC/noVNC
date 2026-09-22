@@ -455,12 +455,13 @@ Command (⌘)
 Tab
 Esc
 Return / Enter
+Backspace
 Select All
 Copy
 Paste
 ```
 
-Control、Option、Command、Return、Select All、Copy、Paste 都使用 25×25 SVG 画布，并统一以 **18px 最大视觉跨度**围绕 12.5 / 12.5 中心校正。自定义图标统一使用 2px 圆角线条风格；Control / Option 因符号本身较扁，实际高度自然较小，但不会人为拉伸变形。
+Control、Option、Command、Return、Backspace、Select All、Copy、Paste 都使用 25×25 SVG 画布，并统一围绕 **12.5 / 12.5** 做视觉居中；自定义图标控制在约 **18px 最大视觉跨度**，并统一使用 2px 圆角线条风格。Control / Option 因符号本身较扁，实际高度自然较小，但不会人为拉伸变形。
 
 ### 回车 / Return
 
@@ -473,6 +474,18 @@ Return / Enter
 ```
 
 可用于提交输入框、执行终端命令、确认对话框，以及任何正常响应 macOS Return / Enter 键的界面。图标使用与其他自定义按钮相同的 25×25 画布、2px 圆角线条，并按 18px 最大视觉跨度居中。
+
+### 退格 / Backspace
+
+**Backspace** 位于同一个 Extra keys 面板中，紧跟在 Return 后面，图标为“向左删除键轮廓 + X”，点击后向远端 Mac 发送标准退格键：
+
+```text
+Backspace
+→ XK_BackSpace
+→ DOM code: Backspace
+```
+
+用于删除光标左侧字符，也适用于 Finder、表单以及正常响应 macOS Delete / Backspace 的应用。图标同样使用 25×25 SVG 画布、2px 圆角线条，并围绕 12.5 / 12.5 做视觉居中，与 Command、Return、Select All 等图标保持一致。
 
 ### 全选
 
