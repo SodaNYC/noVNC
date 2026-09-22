@@ -56,6 +56,7 @@ const UI = {
     macClipboardPending: false,
 
     latencyDebugOverlay: null,
+    latencyDebugSequence: 0,
 
     async start(options={}) {
         UI.customSettings = options.settings || {};
@@ -1443,19 +1444,75 @@ const UI = {
         UI.latencyDebugOverlay = overlay;
     },
 
+    formatLatencyDebugMs(value) {
+        return Number.isFinite(value) ? value.toFixed(1) + " ms" : "—";
+    },
+
+    formatLatencyDebugBytes(value) {
+        if (!Number.isFinite(value)) {
+            return "—";
+        }
+        if (value >= 1024 * 1024) {
+            return (value / (1024 * 1024)).toFixed(2) + " MiB";
+        }
+        if (value >= 1024) {
+            return (value / 1024).toFixed(1) + " KiB";
+        }
+        return value + " B";
+    },
+
     updateLatencyDebug(e) {
         UI.ensureLatencyDebugOverlay();
 
         const detail = e.detail;
-        const recv = detail.recvMs.toFixed(1);
-        const render = detail.renderMs.toFixed(1);
-        const total = detail.totalMs.toFixed(1);
+        if (detail.phase === "start") {
+            UI.latencyDebugSequence = detail.sequence;
+        } else if (detail.sequence !== UI.latencyDebugSequence) {
+            return;
+        }
 
-        UI.latencyDebugOverlay.textContent =
-            "Latency " + detail.kind + "\n" +
-            "recv   " + recv + " ms\n" +
-            "render " + render + " ms\n" +
-            "total  " + total + " ms";
+        const fb = detail.framebufferWidth + "×" + detail.framebufferHeight;
+        const lines = [
+            "Latency " + detail.kind,
+            "FB " + fb,
+        ];
+
+        if (detail.phase === "start") {
+            lines.push("measuring 2.0 s…");
+            UI.latencyDebugOverlay.textContent = lines.join("\n");
+            return;
+        }
+
+        lines.push(
+            "first FBU   " + UI.formatLatencyDebugMs(detail.firstFbuMs),
+            "payload+dec " + UI.formatLatencyDebugMs(detail.payloadDecodeMs),
+            "display     " + UI.formatLatencyDebugMs(detail.displayMs),
+            "present     " + UI.formatLatencyDebugMs(detail.presentMs),
+            "total       " + UI.formatLatencyDebugMs(detail.totalMs)
+        );
+
+        if (detail.phase === "first-frame") {
+            lines.push("2 s window measuring…");
+        } else if (detail.phase === "window") {
+            lines.push(
+                "FBU 2s      " + detail.fbuCount +
+                    " (" + detail.fbuRate.toFixed(1) + "/s)",
+                "max gap     " + UI.formatLatencyDebugMs(detail.maxFbuGapMs),
+                "WS rx       " + UI.formatLatencyDebugBytes(detail.wsRxBytes)
+            );
+
+            if (detail.encodingCounts.length > 0) {
+                lines.push(
+                    "enc         " +
+                    detail.encodingCounts
+                        .slice(0, 3)
+                        .map(item => item.name + "×" + item.count)
+                        .join(" ")
+                );
+            }
+        }
+
+        UI.latencyDebugOverlay.textContent = lines.join("\n");
     },
 
 /* ------^-------

@@ -56,6 +56,7 @@ export default class Websock {
         this._rQbufferSize = 1024 * 1024 * 4; // Receive queue buffer size (4 MiB)
         // called in init: this._rQ = new Uint8Array(this._rQbufferSize);
         this._rQ = null; // Receive queue
+        this._receivedBytes = 0;  // Total bytes received on the raw channel
 
         this._sQbufferSize = 1024 * 10;  // 10 KiB
         // called in init: this._sQ = new Uint8Array(this._sQbufferSize);
@@ -92,6 +93,10 @@ export default class Websock {
         }
 
         return "unknown";
+    }
+
+    get receivedBytes() {
+        return this._receivedBytes;
     }
 
     // Receive queue
@@ -248,6 +253,7 @@ export default class Websock {
     init() {
         this._allocateBuffers();
         this._rQi = 0;
+        this._receivedBytes = 0;
         this._websocket = null;
     }
 
@@ -388,6 +394,7 @@ export default class Websock {
             this._rQi = 0;
         }
         const u8 = new Uint8Array(e.data);
+        this._receivedBytes += u8.length;
         if (u8.length > this._rQbufferSize - this._rQlen) {
             this._expandCompactRQ(u8.length);
         }

@@ -713,7 +713,7 @@ Mac → iPhone 剪贴板的 SSE 也会受到相同的 iOS 后台挂起限制；�
 
 ### Latency Debug：定位延迟在哪一层
 
-本分支提供一个默认关闭的轻量延迟诊断模式。正常访问时不会启用，也不会增加每次 framebuffer update 的日志开销。
+本分支提供一个默认关闭的两阶段延迟诊断模式。正常访问时不会做逐 FBU / 逐矩形统计。
 
 在 noVNC URL 后增加：
 
@@ -727,26 +727,52 @@ Mac → iPhone 剪贴板的 SSE 也会受到相同的 iOS 后台挂起限制；�
 &latency_debug=1
 ```
 
-连接成功后，页面右上角会出现一个小型 `Latency` 浮层。点击远端界面或按键后，会显示最近一次可关联画面更新的三个时间：
+每次开始一次测试后，诊断窗口固定观察 **2 秒**。这 2 秒内后续按键 / 滚轮事件不会重新开始计时，因此可以完整观察窗口动画、Finder 更新和连续滚动。2 秒结束后，再进行下一次独立测试。
+
+连接成功后，页面右上角会显示类似：
 
 ```text
 Latency pointer
-recv    38.2 ms
-render   7.4 ms
-total   45.6 ms
+FB 2560×1440
+first FBU    42.1 ms
+payload+dec 118.7 ms
+display       6.3 ms
+present      10.5 ms
+total       177.6 ms
+FBU 2s      17 (8.5/s)
+max gap     241.0 ms
+WS rx       8.72 MiB
+enc         ZRLE×31 Zlib×4
 ```
 
-含义：
+各指标含义：
 
-- `recv`：从 noVNC **发送按键 / 鼠标按下事件**，到收到下一次完整 framebuffer update 头部的时间。这里包含 iPhone → Mac 网络、Mac VNC Server 处理、编码以及返回路径，所以它**不是纯网络 RTT**。
-- `render`：从收到该 framebuffer update，到 noVNC 的 Display 队列处理完成并进入下一次浏览器绘制帧的时间，主要反映解码、Canvas / Safari 绘制一侧的开销。
-- `total`：从输入发送到浏览器准备呈现该画面的总时间，近似用户感受到的“点下去 → 画面出现变化”的延迟。
+- `FB`：当前 VNC framebuffer 的真实像素尺寸。它比 iPhone 上缩放后的 CSS 显示尺寸更重要，因为 Mac VNC Server 实际需要处理的是这个 framebuffer。
+- `first FBU`：从 noVNC 发送鼠标按下 / 按键，到收到第一组 FramebufferUpdate 头部的时间。这里包含输入上行、Mac 响应以及第一批 VNC 更新开始返回的时间。
+- `payload+dec`：从第一组 FBU 头部出现，到该 FBU 的所有矩形数据处理完成。这里**同时包含剩余 WebSocket 数据到达时间和 noVNC 解码 / 协议处理时间**，不能直接理解成纯 CPU 解码时间。
+- `display`：第一组 FBU 数据处理完成后，到 noVNC Display 渲染队列清空的时间。
+- `present`：Display 队列完成后，到浏览器下一次 `requestAnimationFrame` 的时间，用于观察 Safari 最终呈现调度是否明显阻塞。
+- `total`：从输入发送到第一组相关画面准备呈现的总时间。
+- `FBU 2s`：这次输入后的 2 秒观察窗内收到多少组 FramebufferUpdate，以及平均每秒多少组。这里是 **FBU/s，不等同于视频意义上的真实 FPS**。
+- `max gap`：2 秒内相邻两组 FBU 头部之间最大的间隔。数值很大时，说明更新流中存在明显停顿。
+- `WS rx`：2 秒内 WebSocket 从服务器收到的总字节量。它包含少量 RFB 控制消息，但远程桌面活动时绝大多数通常是 framebuffer 数据，可用于比较不同场景的数据压力。
+- `enc`：2 秒内实际 framebuffer 矩形使用的主要编码及矩形次数，例如 `ZRLE×31 Zlib×4`。
 
-同样的数据也会输出到浏览器控制台，格式为 `[noVNC latency]`。
+推荐逐项测试，每项之间必须等右上角 2 秒统计完成：
 
-这是**诊断相关性指标**，不是协议级因果追踪：如果远端画面本身持续变化，下一次 framebuffer update 可能并非完全由刚才那次输入触发。因此测试时最好在相对静止的桌面上，单次点击菜单、窗口按钮或输入单个字符，再观察数值。
+```text
+A. TextEdit 输入一个 a，然后 2 秒不要操作
+B. TextEdit 点一次 Backspace，然后 2 秒不要操作
+C. TextEdit 点一次 Return，然后 2 秒不要操作
+D. Finder 单击一个文件，然后 2 秒不要操作
+E. Finder 点黄色最小化，然后 2 秒不要再操作
+F. Finder 点绿色全屏，然后 2 秒不要再操作
+G. Finder / Safari 开始连续滚动约 1.5 秒，然后停下
+```
 
-测试结束后删除 `latency_debug=1` 即可恢复正常模式。
+E / F / G 是新版诊断最重要的场景。旧版只看第一帧，无法反映最小化动画或滚动过程中后续 framebuffer update 是否持续卡顿；新版会把后续 2 秒一起统计。
+
+测试结束后删除 `latency_debug=1` 即恢复正常模式。
 
 ---
 

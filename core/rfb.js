@@ -23,7 +23,7 @@ import Cursor from "./util/cursor.js";
 import Websock from "./websock.js";
 import KeyTable from "./input/keysym.js";
 import XtScancode from "./input/xtscancodes.js";
-import { encodings } from "./encodings.js";
+import { encodings, encodingName } from "./encodings.js";
 import RSAAESAuthenticationState from "./ra2.js";
 import legacyCrypto from "./crypto/crypto.js";
 
@@ -123,7 +123,8 @@ export default class RFB extends EventTargetMixin {
         this._wsProtocols = options.wsProtocols || [];
         this._latencyDebug = !!options.latencyDebug;
         this._latencyDebugSequence = 0;
-        this._latencyDebugPending = null;
+        this._latencyDebugWindow = null;
+        this._latencyDebugTimer = null;
 
         // Internal state
         this._rfbConnectionState = '';
@@ -472,6 +473,9 @@ export default class RFB extends EventTargetMixin {
 
         clearTimeout(this._disconnTimer);
         this._disconnTimer = null;
+        clearTimeout(this._latencyDebugTimer);
+        this._latencyDebugTimer = null;
+        this._latencyDebugWindow = null;
 
         this._display.release();
         this._sock.dispose();
@@ -515,59 +519,148 @@ export default class RFB extends EventTargetMixin {
         this._xvpOp(1, 4);
     }
 
+    _latencyDebugDetail(sample, phase) {
+        const now = performance.now();
+        const firstFbuMs = sample.firstFbuHeaderAt === null ?
+            null : sample.firstFbuHeaderAt - sample.sentAt;
+        const payloadDecodeMs =
+            sample.firstFbuHeaderAt === null || sample.firstFbuCompleteAt === null ?
+                null : sample.firstFbuCompleteAt - sample.firstFbuHeaderAt;
+        const displayMs =
+            sample.firstFbuCompleteAt === null || sample.firstDisplayDoneAt === null ?
+                null : sample.firstDisplayDoneAt - sample.firstFbuCompleteAt;
+        const presentMs =
+            sample.firstDisplayDoneAt === null || sample.firstPresentedAt === null ?
+                null : sample.firstPresentedAt - sample.firstDisplayDoneAt;
+        const totalMs = sample.firstPresentedAt === null ?
+            null : sample.firstPresentedAt - sample.sentAt;
+        const windowMs = Math.min(now - sample.sentAt, 2000);
+        const wsRxBytes = Math.max(0, this._sock.receivedBytes - sample.wsBytesStart);
+
+        const encodingCounts = Object.entries(sample.encodingCounts)
+            .map(([name, count]) => ({ name: name, count: count }))
+            .sort((a, b) => b.count - a.count);
+
+        return {
+            phase: phase,
+            sequence: sample.sequence,
+            kind: sample.kind,
+            framebufferWidth: this._fbWidth,
+            framebufferHeight: this._fbHeight,
+            firstFbuMs: firstFbuMs,
+            payloadDecodeMs: payloadDecodeMs,
+            displayMs: displayMs,
+            presentMs: presentMs,
+            totalMs: totalMs,
+            windowMs: windowMs,
+            fbuCount: sample.fbuCount,
+            fbuRate: windowMs > 0 ? sample.fbuCount * 1000 / windowMs : 0,
+            maxFbuGapMs: sample.maxFbuGapMs,
+            wsRxBytes: wsRxBytes,
+            encodingCounts: encodingCounts,
+        };
+    }
+
+    _dispatchLatencyDebug(sample, phase) {
+        const detail = this._latencyDebugDetail(sample, phase);
+        Log.Info("[noVNC latency] " + JSON.stringify(detail));
+        this.dispatchEvent(new CustomEvent(
+            "latencydebug",
+            { detail: detail }));
+    }
+
     _startLatencyDebug(kind) {
-        if (!this._latencyDebug) {
+        if (!this._latencyDebug || this._latencyDebugWindow !== null) {
             return;
         }
 
+        const now = performance.now();
         const sample = {
             sequence: ++this._latencyDebugSequence,
             kind: kind,
-            sentAt: performance.now(),
-            receivedAt: null,
+            sentAt: now,
+            wsBytesStart: this._sock.receivedBytes,
+            firstFbuHeaderAt: null,
+            firstFbuCompleteAt: null,
+            firstDisplayDoneAt: null,
+            firstPresentedAt: null,
+            fbuCount: 0,
+            lastFbuHeaderAt: null,
+            maxFbuGapMs: 0,
+            encodingCounts: {},
         };
-        this._latencyDebugPending = sample;
+        this._latencyDebugWindow = sample;
 
-        console.info("[noVNC latency] input sent", {
-            sequence: sample.sequence,
-            kind: sample.kind,
-        });
+        this._dispatchLatencyDebug(sample, "start");
+
+        this._latencyDebugTimer = setTimeout(() => {
+            if (this._latencyDebugWindow !== sample) {
+                return;
+            }
+            this._dispatchLatencyDebug(sample, "window");
+            this._latencyDebugWindow = null;
+            this._latencyDebugTimer = null;
+        }, 2000);
     }
 
     _markLatencyDebugFramebufferReceived() {
-        if (!this._latencyDebugPending ||
-            this._latencyDebugPending.receivedAt !== null) {
+        const sample = this._latencyDebugWindow;
+        if (!sample) {
             return;
         }
 
-        this._latencyDebugPending.receivedAt = performance.now();
+        const now = performance.now();
+        if (sample.firstFbuHeaderAt === null) {
+            sample.firstFbuHeaderAt = now;
+        }
+
+        if (sample.lastFbuHeaderAt !== null) {
+            sample.maxFbuGapMs = Math.max(
+                sample.maxFbuGapMs,
+                now - sample.lastFbuHeaderAt
+            );
+        }
+        sample.lastFbuHeaderAt = now;
+        sample.fbuCount++;
+    }
+
+    _recordLatencyDebugEncoding(encoding) {
+        const sample = this._latencyDebugWindow;
+        if (!sample) {
+            return;
+        }
+
+        const name = encodingName(encoding);
+        if (name.startsWith("[unknown encoding ")) {
+            return;
+        }
+
+        sample.encodingCounts[name] =
+            (sample.encodingCounts[name] || 0) + 1;
+    }
+
+    _markLatencyDebugFramebufferComplete() {
+        const sample = this._latencyDebugWindow;
+        if (!sample || sample.firstFbuHeaderAt === null ||
+            sample.firstFbuCompleteAt !== null) {
+            return;
+        }
+
+        sample.firstFbuCompleteAt = performance.now();
     }
 
     _finishLatencyDebugFrame() {
-        const sample = this._latencyDebugPending;
-        if (!sample || sample.receivedAt === null) {
+        const sample = this._latencyDebugWindow;
+        if (!sample || sample.firstFbuCompleteAt === null ||
+            sample.firstPresentedAt !== null) {
             return;
         }
 
-        // Detach this sample now so a new input can start measuring while the
-        // browser finishes presenting this frame.
-        this._latencyDebugPending = null;
-
         this._display.flush().then(() => {
+            sample.firstDisplayDoneAt = performance.now();
             requestAnimationFrame(() => {
-                const renderedAt = performance.now();
-                const detail = {
-                    sequence: sample.sequence,
-                    kind: sample.kind,
-                    recvMs: sample.receivedAt - sample.sentAt,
-                    renderMs: renderedAt - sample.receivedAt,
-                    totalMs: renderedAt - sample.sentAt,
-                };
-
-                console.info("[noVNC latency]", detail);
-                this.dispatchEvent(new CustomEvent(
-                    "latencydebug",
-                    { detail: detail }));
+                sample.firstPresentedAt = performance.now();
+                this._dispatchLatencyDebug(sample, "first-frame");
             });
         });
     }
@@ -2921,6 +3014,7 @@ export default class RFB extends EventTargetMixin {
                 this._FBU.encoding = this._sock.rQshift32();
                 /* Encodings are signed */
                 this._FBU.encoding >>= 0;
+                this._recordLatencyDebugEncoding(this._FBU.encoding);
             }
 
             if (!this._handleRect()) {
@@ -2931,6 +3025,7 @@ export default class RFB extends EventTargetMixin {
             this._FBU.encoding = null;
         }
 
+        this._markLatencyDebugFramebufferComplete();
         this._display.flip();
         this._finishLatencyDebugFrame();
 
