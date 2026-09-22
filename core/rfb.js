@@ -526,6 +526,11 @@ export default class RFB extends EventTargetMixin {
         const payloadDecodeMs =
             sample.firstFbuHeaderAt === null || sample.firstFbuCompleteAt === null ?
                 null : sample.firstFbuCompleteAt - sample.firstFbuHeaderAt;
+        const decodeCpuMs = sample.firstFbuCompleteAt === null ?
+            null : sample.firstFbuDecodeCpuMs;
+        const payloadWaitMs =
+            payloadDecodeMs === null || decodeCpuMs === null ?
+                null : Math.max(0, payloadDecodeMs - decodeCpuMs);
         const displayMs =
             sample.firstFbuCompleteAt === null || sample.firstDisplayDoneAt === null ?
                 null : sample.firstDisplayDoneAt - sample.firstFbuCompleteAt;
@@ -548,6 +553,8 @@ export default class RFB extends EventTargetMixin {
             framebufferWidth: this._fbWidth,
             framebufferHeight: this._fbHeight,
             firstFbuMs: firstFbuMs,
+            payloadWaitMs: payloadWaitMs,
+            decodeCpuMs: decodeCpuMs,
             payloadDecodeMs: payloadDecodeMs,
             displayMs: displayMs,
             presentMs: presentMs,
@@ -582,6 +589,7 @@ export default class RFB extends EventTargetMixin {
             wsBytesStart: this._sock.receivedBytes,
             firstFbuHeaderAt: null,
             firstFbuCompleteAt: null,
+            firstFbuDecodeCpuMs: 0,
             firstDisplayDoneAt: null,
             firstPresentedAt: null,
             firstPresentScheduled: false,
@@ -3356,6 +3364,13 @@ export default class RFB extends EventTargetMixin {
             return false;
         }
 
+        const latencySample = this._latencyDebugWindow;
+        const measureDecode =
+            latencySample !== null &&
+            latencySample.firstFbuHeaderAt !== null &&
+            latencySample.firstFbuCompleteAt === null;
+        const decodeStart = measureDecode ? performance.now() : 0;
+
         try {
             return decoder.decodeRect(this._FBU.x, this._FBU.y,
                                       this._FBU.width, this._FBU.height,
@@ -3364,6 +3379,11 @@ export default class RFB extends EventTargetMixin {
         } catch (err) {
             this._fail("Error decoding rect: " + err);
             return false;
+        } finally {
+            if (measureDecode) {
+                latencySample.firstFbuDecodeCpuMs +=
+                    performance.now() - decodeStart;
+            }
         }
     }
 

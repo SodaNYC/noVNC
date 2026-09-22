@@ -735,8 +735,9 @@ Mac → iPhone 剪贴板的 SSE 也会受到相同的 iOS 后台挂起限制；�
 Latency pointer
 FB 2560×1440
 first FBU    42.1 ms
-payload+dec 118.7 ms
-display       6.3 ms
+payload wait 101.2 ms
+decode CPU    17.5 ms
+display        6.3 ms
 present      10.5 ms
 total       177.6 ms
 FBU 2s      17 (8.5/s)
@@ -749,7 +750,8 @@ enc         ZRLE×31 Zlib×4
 
 - `FB`：当前 VNC framebuffer 的真实像素尺寸。它比 iPhone 上缩放后的 CSS 显示尺寸更重要，因为 Mac VNC Server 实际需要处理的是这个 framebuffer。
 - `first FBU`：从 noVNC 发送鼠标按下 / 按键，到收到第一组 FramebufferUpdate 头部的时间。这里包含输入上行、Mac 响应以及第一批 VNC 更新开始返回的时间。
-- `payload+dec`：从第一组 FBU 头部出现，到该 FBU 的所有矩形数据处理完成。这里**同时包含剩余 WebSocket 数据到达时间和 noVNC 解码 / 协议处理时间**，不能直接理解成纯 CPU 解码时间。
+- `payload wait`：第一组 FBU 头部出现后，扣除实际 decoder 同步执行时间后剩余的等待时间。它主要反映等待后续 WebSocket / RFB payload 到达，但也包含少量 FBU/矩形头解析等没有单独计时的开销，因此是**近似的网络/服务器发送等待时间**。
+- `decode CPU`：第一组 FBU 内所有数据矩形调用 noVNC decoder 时，同步 JavaScript 执行时间的累计值。当前 Apple Screen Sharing 如果使用 ZRLE，这一项主要反映 ZRLE 解码和像素展开的前端 CPU 成本。
 - `display`：第一组 FBU 数据处理完成后，到 noVNC Display 渲染队列清空的时间。
 - `present`：Display 队列完成后，到浏览器下一次 `requestAnimationFrame` 的时间，用于观察 Safari 最终呈现调度是否明显阻塞。
 - `total`：从输入发送到第一组相关画面准备呈现的总时间。
