@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="25" height="25" viewBox="0 0 25 25">
+  <!-- Return / Enter: centered 18px visual width, matching 2px custom-icon stroke. -->
+  <g fill="none" stroke="#ffffff" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(0,-0.25)">
+    <path d="M20.5 5.5V11.5C20.5 13.709 18.709 15.5 16.5 15.5H4.5"/>
+    <path d="M9 11L4.5 15.5L9 20"/>
+  </g>
+</svg>
