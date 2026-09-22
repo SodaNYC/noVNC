@@ -110,6 +110,54 @@ describe('Display/Canvas helper', function () {
         });
     });
 
+    describe('low-memory presentation', function () {
+        it('should keep a small visible backing store while preserving CSS geometry', function () {
+            const canvas = document.createElement('canvas');
+            const display = new Display(
+                canvas,
+                { lowMemoryPresentation: true,
+                  presentationPixelRatio: 1.25 }
+            );
+
+            display.resize(2000, 1000);
+            display.scale = 0.2;
+
+            expect(canvas.width).to.equal(500);
+            expect(canvas.height).to.equal(250);
+            expect(canvas.style.width).to.equal('400px');
+            expect(canvas.style.height).to.equal('200px');
+        });
+
+        it('should keep pointer coordinate conversion in remote pixels', function () {
+            const display = new Display(
+                document.createElement('canvas'),
+                { lowMemoryPresentation: true,
+                  presentationPixelRatio: 1.25 }
+            );
+
+            display.resize(2000, 1000);
+            display.scale = 0.2;
+
+            expect(display.absX(100)).to.equal(500);
+            expect(display.absY(50)).to.equal(250);
+        });
+
+        it('should not preserve a full framebuffer copy across resize', function () {
+            const display = new Display(
+                document.createElement('canvas'),
+                { lowMemoryPresentation: true,
+                  presentationPixelRatio: 1.25 }
+            );
+
+            display.resize(4, 4);
+            display.fillRect(0, 0, 4, 4, [0xff, 0, 0]);
+            display.resize(2, 2);
+
+            const pixels = display._drawCtx.getImageData(0, 0, 2, 2).data;
+            expect(Array.from(pixels)).to.deep.equal(new Array(16).fill(0));
+        });
+    });
+
     describe('resizing', function () {
         let display;
         beforeEach(function () {
