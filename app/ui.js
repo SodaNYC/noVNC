@@ -430,6 +430,8 @@ const UI = {
             .addEventListener('click', UI.sendTab);
         document.getElementById("noVNC_send_esc_button")
             .addEventListener('click', UI.sendEsc);
+        document.getElementById("noVNC_send_enter_button")
+            .addEventListener('click', UI.sendEnter);
         document.getElementById("noVNC_send_select_all_button")
             .addEventListener('click', UI.sendSelectAll);
         document.getElementById("noVNC_send_copy_button")
@@ -2140,6 +2142,10 @@ const UI = {
 
     sendTab() {
         UI.sendKey(KeyTable.XK_Tab, "Tab");
+    },
+
+    sendEnter() {
+        UI.sendKey(KeyTable.XK_Return, "Enter");
     },
 
     toggleCtrl() {
