@@ -1485,7 +1485,7 @@ const UI = {
 
         lines.push(
             "first FBU   " + UI.formatLatencyDebugMs(detail.firstFbuMs),
-            "payload wait" + UI.formatLatencyDebugMs(detail.payloadWaitMs),
+            "payload wait " + UI.formatLatencyDebugMs(detail.payloadWaitMs),
             "decode CPU  " + UI.formatLatencyDebugMs(detail.decodeCpuMs),
             "display     " + UI.formatLatencyDebugMs(detail.displayMs),
             "present     " + UI.formatLatencyDebugMs(detail.presentMs),
