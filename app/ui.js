@@ -1492,7 +1492,8 @@ const UI = {
                              url.href,
                              { shared: UI.getSetting('shared'),
                                repeaterID: UI.getSetting('repeaterID'),
-                               credentials: credentials });
+                               credentials: credentials,
+                               lowMemoryDisplay: isIOS() });
         } catch (exc) {
             Log.Error("Failed to connect to server: " + exc);
             UI.updateVisualState('disconnected');
