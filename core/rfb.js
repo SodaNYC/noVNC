@@ -281,6 +281,7 @@ export default class RFB extends EventTargetMixin {
                 {
                     lowMemoryPresentation: this._lowMemoryDisplay,
                     presentationPixelRatio: 1.25,
+                    presentationMaxDimension: 1024,
                 }
             );
         } catch (exc) {
