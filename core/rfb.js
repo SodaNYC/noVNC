@@ -584,6 +584,8 @@ export default class RFB extends EventTargetMixin {
             firstFbuCompleteAt: null,
             firstDisplayDoneAt: null,
             firstPresentedAt: null,
+            firstPresentScheduled: false,
+            windowFinished: false,
             fbuCount: 0,
             lastFbuHeaderAt: null,
             maxFbuGapMs: 0,
@@ -597,6 +599,7 @@ export default class RFB extends EventTargetMixin {
             if (this._latencyDebugWindow !== sample) {
                 return;
             }
+            sample.windowFinished = true;
             this._dispatchLatencyDebug(sample, "window");
             this._latencyDebugWindow = null;
             this._latencyDebugTimer = null;
@@ -652,15 +655,18 @@ export default class RFB extends EventTargetMixin {
     _finishLatencyDebugFrame() {
         const sample = this._latencyDebugWindow;
         if (!sample || sample.firstFbuCompleteAt === null ||
-            sample.firstPresentedAt !== null) {
+            sample.firstPresentedAt !== null || sample.firstPresentScheduled) {
             return;
         }
 
+        sample.firstPresentScheduled = true;
         this._display.flush().then(() => {
             sample.firstDisplayDoneAt = performance.now();
             requestAnimationFrame(() => {
                 sample.firstPresentedAt = performance.now();
-                this._dispatchLatencyDebug(sample, "first-frame");
+                if (!sample.windowFinished) {
+                    this._dispatchLatencyDebug(sample, "first-frame");
+                }
             });
         });
     }
