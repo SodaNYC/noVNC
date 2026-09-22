@@ -121,6 +121,7 @@ export default class RFB extends EventTargetMixin {
         this._shared = 'shared' in options ? !!options.shared : true;
         this._repeaterID = options.repeaterID || '';
         this._wsProtocols = options.wsProtocols || [];
+        this._lowMemoryDisplay = !!options.lowMemoryDisplay;
 
         // Internal state
         this._rfbConnectionState = '';
@@ -275,7 +276,13 @@ export default class RFB extends EventTargetMixin {
         // NB: nothing that needs explicit teardown should be done
         // before this point, since this can throw an exception
         try {
-            this._display = new Display(this._canvas);
+            this._display = new Display(
+                this._canvas,
+                {
+                    lowMemoryPresentation: this._lowMemoryDisplay,
+                    presentationPixelRatio: 1.25,
+                }
+            );
         } catch (exc) {
             Log.Error("Display exception: " + exc);
             throw exc;
