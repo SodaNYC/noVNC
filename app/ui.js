@@ -420,6 +420,8 @@ const UI = {
     addExtraKeysHandlers() {
         document.getElementById("noVNC_toggle_extra_keys_button")
             .addEventListener('click', UI.toggleExtraKeys);
+        document.getElementById("noVNC_send_backspace_button")
+            .addEventListener('click', UI.sendBackspace);
         document.getElementById("noVNC_toggle_ctrl_button")
             .addEventListener('click', UI.toggleCtrl);
         document.getElementById("noVNC_toggle_option_button")
@@ -2148,6 +2150,10 @@ const UI = {
         UI.sendKey(KeyTable.XK_Return, "Enter");
     },
 
+    sendBackspace() {
+        UI.sendKey(KeyTable.XK_BackSpace, "Backspace");
+    },
+
     toggleCtrl() {
         const btn = document.getElementById('noVNC_toggle_ctrl_button');
         if (btn.classList.contains("noVNC_selected")) {
@@ -2275,12 +2281,16 @@ const UI = {
                 .classList.add('noVNC_hidden');
             document.getElementById('noVNC_toggle_extra_keys_button')
                 .classList.add('noVNC_hidden');
+            document.getElementById('noVNC_send_backspace_button')
+                .classList.add('noVNC_hidden');
             document.getElementById('noVNC_clipboard_button')
                 .classList.add('noVNC_hidden');
         } else {
             document.getElementById('noVNC_keyboard_button')
                 .classList.remove('noVNC_hidden');
             document.getElementById('noVNC_toggle_extra_keys_button')
+                .classList.remove('noVNC_hidden');
+            document.getElementById('noVNC_send_backspace_button')
                 .classList.remove('noVNC_hidden');
             document.getElementById('noVNC_clipboard_button')
                 .classList.remove('noVNC_hidden');
