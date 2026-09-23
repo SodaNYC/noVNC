@@ -1470,8 +1470,9 @@ export default class RFB extends EventTargetMixin {
             this._display.width > viewportWidth ||
             this._display.height > viewportHeight;
 
-        this.dragViewport = clipped;
-
+        // Local zoom only changes whether viewport panning is available.
+        // The UI owns the selected interaction mode (pan vs left drag)
+        // and will synchronize dragViewport from the toolbar state.
         this._setClippingViewport(clipped);
         this._fixScrollbars();
     }

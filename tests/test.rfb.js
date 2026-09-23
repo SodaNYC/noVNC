@@ -4705,6 +4705,42 @@ describe('Remote Frame Buffer protocol client', function () {
 
                     zoom.restore();
                 });
+
+                it('should preserve left-drag mode while applying local zoom', function () {
+                    client.dragViewport = false;
+                    client._display.resize(1000, 1000);
+
+                    const screenSize = sinon.stub(client, '_screenSize')
+                        .returns({ w: 200, h: 200 });
+                    const fitScale = sinon.stub(client, '_localZoomFitScale')
+                        .returns(0.2);
+
+                    client._applyLocalZoom(0.5);
+
+                    expect(client.clippingViewport).to.equal(true);
+                    expect(client.dragViewport).to.equal(false);
+
+                    fitScale.restore();
+                    screenSize.restore();
+                });
+
+                it('should preserve pan mode while applying local zoom', function () {
+                    client.dragViewport = true;
+                    client._display.resize(1000, 1000);
+
+                    const screenSize = sinon.stub(client, '_screenSize')
+                        .returns({ w: 200, h: 200 });
+                    const fitScale = sinon.stub(client, '_localZoomFitScale')
+                        .returns(0.2);
+
+                    client._applyLocalZoom(0.5);
+
+                    expect(client.clippingViewport).to.equal(true);
+                    expect(client.dragViewport).to.equal(true);
+
+                    fitScale.restore();
+                    screenSize.restore();
+                });
             });
 
         });

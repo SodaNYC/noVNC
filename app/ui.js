@@ -55,6 +55,10 @@ const UI = {
     macClipboardText: null,
     macClipboardPending: false,
 
+    // Preferred interaction mode whenever the viewport is clipped.
+    // "pan" is the initial default; explicit user choice survives pinch zoom.
+    viewDragMode: "pan",
+
     async start(options={}) {
         UI.customSettings = options.settings || {};
         if (UI.customSettings.defaults === undefined) {
@@ -1870,11 +1874,12 @@ const UI = {
             return;
         }
 
-        UI.rfb.dragViewport = !UI.rfb.dragViewport;
+        UI.viewDragMode =
+            UI.viewDragMode === "pan" ? "left-drag" : "pan";
         UI.updateViewDrag();
 
         UI.showStatus(
-            UI.rfb.dragViewport ?
+            UI.viewDragMode === "pan" ?
                 "Viewport pan mode" :
                 "Left mouse drag mode",
             "normal",
@@ -1892,13 +1897,13 @@ const UI = {
             UI.rfb.clipViewport &&
             UI.rfb.clippingViewport;
 
-        if (!canPan && UI.rfb.dragViewport) {
-            // A normal unclipped viewport does not need a pan mode.
-            UI.rfb.dragViewport = false;
-        }
+        // The toolbar mode is the source of truth. Zoom/clipping can decide
+        // whether pan is available, but must never silently change Pan ↔ Drag.
+        UI.rfb.dragViewport =
+            canPan && UI.viewDragMode === "pan";
 
         // Keep the mode indicator visible whenever connected. The icon
-        // itself now communicates the current touch interaction mode.
+        // itself communicates the current touch interaction mode.
         viewDragButton.classList.remove("noVNC_hidden");
         viewDragButton.classList.remove("noVNC_selected");
         viewDragButton.disabled = !canPan;
@@ -1913,7 +1918,7 @@ const UI = {
         viewDragButton.disabled = false;
         viewDragButton.classList.add("noVNC_selected");
 
-        if (UI.rfb.dragViewport) {
+        if (UI.viewDragMode === "pan") {
             viewDragButton.src = "app/images/drag.svg";
             viewDragButton.alt = "Viewport pan mode";
             viewDragButton.title =

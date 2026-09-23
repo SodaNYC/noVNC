@@ -393,7 +393,7 @@ iPhone 每次重新进入 noVNC 时，当前页面会先使用 **Local scaling /
 → 当前是 Normal pointer mode
 ```
 
-这个启动行为只覆盖当前 iPhone 页面会话，不会改写其他浏览器保存的 noVNC 设置。之后 Pinch 放大并产生可平移区域时，才会按现有逻辑进入 **Viewport pan mode**。
+这个启动行为只覆盖当前 iPhone 页面会话，不会改写其他浏览器保存的 noVNC 设置。首次 Pinch 放大并产生可平移区域时，默认偏好仍是 **Viewport pan mode**；但只要用户手动切换过 Pan / Left Drag，后续缩放不会再擅自改变这个选择。
 
 ### 指针 / Viewport Pan / Left Drag 三种图标状态
 
@@ -405,7 +405,12 @@ iPhone 每次重新进入 noVNC 时，当前页面会先使用 **Local scaling /
 | 手掌 | Viewport pan mode | 移动放大后的 viewport |
 | 鼠标左键按下 + 拖动箭头 | Left mouse drag mode | 向 Mac 发送真正的左键按住拖动 |
 
-Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，按钮显示白色手掌并使用现有 noVNC 选中样式。
+首次 Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，按钮显示白色手掌并使用现有 noVNC 选中样式。此后工具栏图标就是交互模式的唯一真源：
+
+- 手掌图标 = 后台一定是 Viewport pan
+- Left Drag 图标 = 后台一定是 Left mouse drag
+- Pinch zoom 只改变缩放比例和“是否存在可平移区域”，不会在 Pan / Left Drag 之间自动切换
+- 如果已经选中 Left Drag，再放大、缩小、再放大，仍保留 Left Drag 偏好
 
 需要在放大画面下拖文件、拖窗口或框选文字时：
 
@@ -417,7 +422,7 @@ Pinch 放大并产生可平移区域后，默认进入 **Viewport pan mode**，�
 → Mac 收到左键按下 + 移动 + 松开
 ```
 
-再点一次会切回 **Viewport pan mode**。当画面恢复为无需平移的普通状态时，按钮显示箭头，并回到 **Normal pointer mode**。
+再点一次会切回 **Viewport pan mode**。当画面恢复为无需平移的普通状态时，按钮暂时显示箭头并进入 **Normal pointer mode**；Pan / Left Drag 的最后选择仍会保留，下一次再次放大到可平移状态时恢复该选择。
 
 ### 双击
 
