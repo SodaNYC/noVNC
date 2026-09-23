@@ -587,6 +587,37 @@ html {
     padding: 10px;
 }
 
+#noVNC_modifiers .noVNC_arrow_keys {
+    display: grid;
+    grid-template-columns: repeat(3, 35px);
+    grid-template-rows: repeat(2, 35px);
+    gap: 4px;
+    justify-content: center;
+    margin: 10px auto;
+}
+#noVNC_modifiers .noVNC_arrow_keys .noVNC_button {
+    width: 35px;
+    height: 35px;
+    box-sizing: border-box;
+    margin: 0;
+}
+#noVNC_send_arrow_up_button {
+    grid-column: 2;
+    grid-row: 1;
+}
+#noVNC_send_arrow_left_button {
+    grid-column: 1;
+    grid-row: 2;
+}
+#noVNC_send_arrow_down_button {
+    grid-column: 2;
+    grid-row: 2;
+}
+#noVNC_send_arrow_right_button {
+    grid-column: 3;
+    grid-row: 2;
+}
+
 /* Shutdown/Reboot */
 :root:not(.noVNC_connected) #noVNC_power_button {
     display: none;

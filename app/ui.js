@@ -434,6 +434,14 @@ const UI = {
             .addEventListener('click', UI.sendEsc);
         document.getElementById("noVNC_send_enter_button")
             .addEventListener('click', UI.sendEnter);
+        document.getElementById("noVNC_send_arrow_up_button")
+            .addEventListener('click', UI.sendArrowUp);
+        document.getElementById("noVNC_send_arrow_left_button")
+            .addEventListener('click', UI.sendArrowLeft);
+        document.getElementById("noVNC_send_arrow_down_button")
+            .addEventListener('click', UI.sendArrowDown);
+        document.getElementById("noVNC_send_arrow_right_button")
+            .addEventListener('click', UI.sendArrowRight);
         document.getElementById("noVNC_send_select_all_button")
             .addEventListener('click', UI.sendSelectAll);
         document.getElementById("noVNC_send_copy_button")
@@ -2152,6 +2160,22 @@ const UI = {
 
     sendBackspace() {
         UI.sendKey(KeyTable.XK_BackSpace, "Backspace");
+    },
+
+    sendArrowUp() {
+        UI.sendKey(KeyTable.XK_Up, "ArrowUp");
+    },
+
+    sendArrowLeft() {
+        UI.sendKey(KeyTable.XK_Left, "ArrowLeft");
+    },
+
+    sendArrowDown() {
+        UI.sendKey(KeyTable.XK_Down, "ArrowDown");
+    },
+
+    sendArrowRight() {
+        UI.sendKey(KeyTable.XK_Right, "ArrowRight");
     },
 
     toggleCtrl() {

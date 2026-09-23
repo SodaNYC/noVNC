@@ -456,6 +456,7 @@ Tab
 Esc
 Return / Enter
 Backspace
+Arrow Up / Down / Left / Right
 Select All
 Copy
 Paste
@@ -486,6 +487,26 @@ Backspace
 ```
 
 用于删除光标左侧字符，也适用于 Finder、表单以及正常响应 macOS Delete / Backspace 的应用。图标同样使用 25×25 SVG 画布、2px 圆角线条，并围绕 12.5 / 12.5 做视觉居中，与 Command、Return、Select All 等图标保持一致。
+
+### 方向键
+
+**Backspace** 下方提供一个紧凑的十字方向键区域：
+
+```text
+    ↑
+  ← ↓ →
+```
+
+四个按钮分别向远端 Mac 发送标准方向键：
+
+```text
+↑ → XK_Up    / DOM code: ArrowUp
+↓ → XK_Down  / DOM code: ArrowDown
+← → XK_Left  / DOM code: ArrowLeft
+→ → XK_Right / DOM code: ArrowRight
+```
+
+在 Terminal 中可以直接使用：上 / 下切换 shell 历史命令，左 / 右移动当前命令行光标；在 Finder、文本编辑器以及其他支持标准方向键的 macOS 应用中也可正常使用。方向键保持在 Extra Keys 面板内，不需要唤起 iPhone 软键盘。
 
 ### 全选
 
