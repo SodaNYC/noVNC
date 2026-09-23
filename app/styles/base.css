@@ -580,6 +580,9 @@ html {
 :root:not(.noVNC_connected) #noVNC_toggle_extra_keys_button {
     display: none;
 }
+:root:not(.noVNC_connected) #noVNC_refresh_screen_button {
+    display: none;
+}
 
 #noVNC_modifiers {
     background-color: var(--novnc-darkgrey);

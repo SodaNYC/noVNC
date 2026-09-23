@@ -364,6 +364,8 @@ const UI = {
 
         document.getElementById("noVNC_view_drag_button")
             .addEventListener('click', UI.toggleViewDrag);
+        document.getElementById("noVNC_refresh_screen_button")
+            .addEventListener('click', UI.refreshScreen);
 
         document.getElementById("noVNC_control_bar_handle")
             .addEventListener('mousedown', UI.controlbarHandleMouseDown);
@@ -1863,6 +1865,20 @@ const UI = {
 
 /* ------^-------
  * /VIEW CLIPPING
+ * ==============
+ * SCREEN REFRESH
+ * ------v------*/
+
+    refreshScreen() {
+        if (!UI.rfb) return;
+
+        if (UI.rfb.refreshScreen()) {
+            UI.showStatus("Full screen refresh requested", "normal", 1500);
+        }
+    },
+
+/* ------^-------
+ * /SCREEN REFRESH
  * ==============
  *    VIEWDRAG
  * ------v------*/

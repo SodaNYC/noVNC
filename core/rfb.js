@@ -488,6 +488,18 @@ export default class RFB extends EventTargetMixin {
         this._resumeAuthentication();
     }
 
+    refreshScreen() {
+        if (this._rfbConnectionState !== 'connected' ||
+            this._fbWidth <= 0 || this._fbHeight <= 0) {
+            return false;
+        }
+
+        RFB.messages.fbUpdateRequest(
+            this._sock, false, 0, 0, this._fbWidth, this._fbHeight
+        );
+        return true;
+    }
+
     sendCtrlAltDel() {
         if (this._rfbConnectionState !== 'connected' || this._viewOnly) { return; }
         Log.Info("Sending Ctrl-Alt-Del");

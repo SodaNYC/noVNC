@@ -443,6 +443,30 @@ describe('Remote Frame Buffer protocol client', function () {
             client = makeRFB();
         });
 
+        describe('#refreshScreen', function () {
+            it('should request a full framebuffer update', function () {
+                client._fbWidth = 640;
+                client._fbHeight = 480;
+
+                client.refreshScreen();
+
+                expect(client._sock).to.have.sent(new Uint8Array([
+                    0x03, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
+                    0x02, 0x80, 0x01, 0xe0,
+                ]));
+            });
+
+            it('should not request an update when disconnected', function () {
+                client._rfbConnectionState = "connecting";
+                client._fbWidth = 640;
+                client._fbHeight = 480;
+
+                expect(client.refreshScreen()).to.equal(false);
+                expect(client._sock).to.have.sent(new Uint8Array([]));
+            });
+        });
+
         describe('#sendCtrlAlDel', function () {
             it('should sent ctrl[down]-alt[down]-del[down] then del[up]-alt[up]-ctrl[up]', function () {
                 let esock = new Websock();

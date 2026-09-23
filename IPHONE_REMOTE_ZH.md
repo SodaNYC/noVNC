@@ -609,6 +609,23 @@ $HOME
 
 ---
 
+### Refresh Screen：画面卡住时手动请求完整重绘
+
+左侧工具栏新增 **Refresh Screen**（圆形刷新箭头）按钮。它不是浏览器刷新，也不会重新建立 VNC 连接：
+
+```text
+点击 Refresh Screen
+→ 向当前 VNC Server 发送一次非增量 framebuffer update request
+→ 请求重新发送整个 framebuffer
+→ 当前连接、认证、缩放比例、Pan / Left Drag 状态全部保持不变
+```
+
+适合“连接看起来还在，但远程画面停止更新 / 卡在旧画面”的情况。按钮只在 VNC 已连接时显示，View Only 模式下也可以使用。
+
+如果点击后仍完全没有新画面，通常说明问题已经不是单纯漏掉 framebuffer update，而可能是 WebSocket 或 Apple Screen Sharing 会话本身失去响应；这时再使用断线重连。
+
+---
+
 ## 5. 启动方法
 
 ### 5.1 macOS Screen Sharing
