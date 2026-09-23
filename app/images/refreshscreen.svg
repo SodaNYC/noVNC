@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25">
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="25" height="25" viewBox="0 0 25 25">
+  <!-- Clockwise refresh: ~18px visual span, matching the 2px custom-icon stroke. -->
   <g fill="none" stroke="#ffffff" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round">
-    <path d="M19.5 8.5V4.5L16.5 7.5"/>
-    <path d="M19 8A8 8 0 1 0 20.2 15.5"/>
+    <path d="M18.7 17.5A7.7 7.7 0 1 1 18.7 8"/>
+    <path d="M14.7 8H18.7V4"/>
   </g>
 </svg>
