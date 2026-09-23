@@ -625,11 +625,31 @@ localhost:5900
 
 ### 5.2 启动 noVNC
 
+本机的 `websockify` 会使用当前 Python / Conda 环境。启动前先激活**已经安装 `numpy` 的 Conda 虚拟环境**，不要直接在缺少 `numpy` 的 `base` 环境里运行。
+
 ```bash
+conda activate <已安装-numpy-的环境名>
+
 cd ~/noVNC
 git switch iphone-custom-v1.7
-./utils/novnc_proxy --vnc localhost:5900 --listen 127.0.0.1:6080
+./utils/novnc_proxy \
+  --vnc localhost:5900 \
+  --listen 127.0.0.1:6080
 ```
+
+可在启动前快速确认当前环境：
+
+```bash
+python -c "import numpy; print(numpy.__version__)"
+```
+
+如果误用了没有安装 `numpy` 的环境，`websockify` 会出现类似警告：
+
+```text
+UserWarning: no 'numpy' module, HyBi protocol will be slower
+```
+
+这不是连接失败，但会让 WebSocket HyBi 处理走较慢路径。看到该警告时，先停止 `novnc_proxy`，切换到已经安装 `numpy` 的 Conda 环境后再启动。
 
 这里故意监听：
 
