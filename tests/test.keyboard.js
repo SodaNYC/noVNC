@@ -634,3 +634,48 @@ describe('Key event handling', function () {
         });
     });
 });
+
+describe('Textarea keyboard event handling', function () {
+    function keyevent(key, code, modifiers={}) {
+        return {
+            key: key,
+            code: code,
+            ...modifiers,
+            stopPropagation: sinon.spy(),
+            preventDefault: sinon.spy(),
+            getModifierState: () => false,
+        };
+    }
+
+    it('does not send ordinary characters via both keydown and input', function () {
+        const kbd = new Keyboard(document, { textInput: true });
+        kbd.onkeyevent = sinon.spy();
+        const down = keyevent('a', 'KeyA');
+        kbd._handleKeyDown(down);
+        kbd._handleKeyUp(keyevent('a', 'KeyA'));
+        expect(kbd.onkeyevent).to.not.have.been.called;
+        expect(down.preventDefault).to.not.have.been.called;
+    });
+
+    it('does not forward IME preedit or virtual Backspace/Enter', function () {
+        const kbd = new Keyboard(document, { textInput: true });
+        kbd.onkeyevent = sinon.spy();
+        kbd._handleKeyDown(keyevent('Unidentified', 'Unidentified',
+                                    { keyCode: 229 }));
+        kbd._handleKeyDown(keyevent('n', 'KeyN', { isComposing: true }));
+        kbd._handleKeyDown(keyevent('Backspace', 'Backspace'));
+        kbd._handleKeyDown(keyevent('Enter', 'Enter'));
+        expect(kbd.onkeyevent).to.not.have.been.called;
+    });
+
+    it('preserves arrow keys and modifier shortcuts', function () {
+        const kbd = new Keyboard(document, { textInput: true });
+        kbd.onkeyevent = sinon.spy();
+        kbd._handleKeyDown(keyevent('ArrowLeft', 'ArrowLeft'));
+        kbd._handleKeyUp(keyevent('ArrowLeft', 'ArrowLeft'));
+        kbd._handleKeyDown(keyevent('c', 'KeyC', { ctrlKey: true }));
+        expect(kbd.onkeyevent).to.have.been.calledThrice;
+        expect(kbd.onkeyevent.firstCall).to.have.been.calledWith(
+            0xff51, 'ArrowLeft', true);
+    });
+});

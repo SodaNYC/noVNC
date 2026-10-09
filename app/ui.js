@@ -15,6 +15,7 @@ import { setCapture, getPointerEvent } from '../core/util/events.js';
 import KeyTable from "../core/input/keysym.js";
 import keysyms from "../core/input/keysymdef.js";
 import Keyboard from "../core/input/keyboard.js";
+import VirtualKeyboardInput from "./virtualkeyboard.js";
 import RFB from "../core/rfb.js";
 import * as WebUtil from "./webutil.js";
 
@@ -39,8 +40,7 @@ const UI = {
     controlbarMouseDownClientY: 0,
     controlbarMouseDownOffsetY: 0,
 
-    lastKeyboardinput: null,
-    defaultKeyboardinputLen: 100,
+    virtualKeyboardInput: null,
 
     inhibitReconnect: true,
     reconnectCallback: null,
@@ -138,7 +138,10 @@ const UI = {
         document.getElementById("noVNC_status")
             .addEventListener('click', UI.hideStatus);
 
-        // Bootstrap fallback input handler
+        // Track committed text separately from iOS IME composition.
+        UI.virtualKeyboardInput = new VirtualKeyboardInput(
+            (keysym, code) => UI.keyEvent(keysym, code)
+        );
         UI.keyboardinputReset();
 
         UI.openControlbar();
@@ -364,8 +367,6 @@ const UI = {
 
         document.getElementById("noVNC_view_drag_button")
             .addEventListener('click', UI.toggleViewDrag);
-        document.getElementById("noVNC_refresh_screen_button")
-            .addEventListener('click', UI.refreshScreen);
 
         document.getElementById("noVNC_control_bar_handle")
             .addEventListener('mousedown', UI.controlbarHandleMouseDown);
@@ -386,11 +387,18 @@ const UI = {
         document.getElementById("noVNC_keyboard_button")
             .addEventListener('click', UI.toggleVirtualKeyboard);
 
-        UI.touchKeyboard = new Keyboard(document.getElementById('noVNC_keyboardinput'));
+        const keyboardInput = document.getElementById('noVNC_keyboardinput');
+        // Printable keys are handled by the input event, not keydown too.
+        UI.touchKeyboard = new Keyboard(keyboardInput, { textInput: true });
         UI.touchKeyboard.onkeyevent = UI.keyEvent;
         UI.touchKeyboard.grab();
-        document.getElementById("noVNC_keyboardinput")
-            .addEventListener('input', UI.keyInput);
+        keyboardInput.addEventListener('compositionstart', () => {
+            UI.virtualKeyboardInput.compositionStart();
+        });
+        keyboardInput.addEventListener('compositionend', () => {
+            UI.virtualKeyboardInput.compositionEnd(keyboardInput);
+        });
+        keyboardInput.addEventListener('input', UI.keyInput);
         document.getElementById("noVNC_keyboardinput")
             .addEventListener('focus', UI.onfocusVirtualKeyboard);
         document.getElementById("noVNC_keyboardinput")
@@ -1866,20 +1874,6 @@ const UI = {
 /* ------^-------
  * /VIEW CLIPPING
  * ==============
- * SCREEN REFRESH
- * ------v------*/
-
-    refreshScreen() {
-        if (!UI.rfb) return;
-
-        if (UI.rfb.refreshScreen()) {
-            UI.showStatus("Full screen refresh requested", "normal", 1500);
-        }
-    },
-
-/* ------^-------
- * /SCREEN REFRESH
- * ==============
  *    VIEWDRAG
  * ------v------*/
 
@@ -2059,9 +2053,9 @@ const UI = {
     },
 
     keyboardinputReset() {
-        const kbi = document.getElementById('noVNC_keyboardinput');
-        kbi.value = new Array(UI.defaultKeyboardinputLen).join("_");
-        UI.lastKeyboardinput = kbi.value;
+        UI.virtualKeyboardInput.reset(
+            document.getElementById('noVNC_keyboardinput')
+        );
     },
 
     keyEvent(keysym, code, down) {
@@ -2070,69 +2064,10 @@ const UI = {
         UI.rfb.sendKey(keysym, code, down);
     },
 
-    // When normal keyboard events are left uncought, use the input events from
-    // the keyboardinput element instead and generate the corresponding key events.
-    // This code is required since some browsers on Android are inconsistent in
-    // sending keyCodes in the normal keyboard events when using on screen keyboards.
     keyInput(event) {
-
         if (!UI.rfb) return;
 
-        const newValue = event.target.value;
-
-        if (!UI.lastKeyboardinput) {
-            UI.keyboardinputReset();
-        }
-        const oldValue = UI.lastKeyboardinput;
-
-        let newLen;
-        try {
-            // Try to check caret position since whitespace at the end
-            // will not be considered by value.length in some browsers
-            newLen = Math.max(event.target.selectionStart, newValue.length);
-        } catch (err) {
-            // selectionStart is undefined in Google Chrome
-            newLen = newValue.length;
-        }
-        const oldLen = oldValue.length;
-
-        let inputs = newLen - oldLen;
-        let backspaces = inputs < 0 ? -inputs : 0;
-
-        // Compare the old string with the new to account for
-        // text-corrections or other input that modify existing text
-        for (let i = 0; i < Math.min(oldLen, newLen); i++) {
-            if (newValue.charAt(i) != oldValue.charAt(i)) {
-                inputs = newLen - i;
-                backspaces = oldLen - i;
-                break;
-            }
-        }
-
-        // Send the key events
-        for (let i = 0; i < backspaces; i++) {
-            UI.rfb.sendKey(KeyTable.XK_BackSpace, "Backspace");
-        }
-        for (let i = newLen - inputs; i < newLen; i++) {
-            UI.rfb.sendKey(keysyms.lookup(newValue.charCodeAt(i)));
-        }
-
-        // Control the text content length in the keyboardinput element
-        if (newLen > 2 * UI.defaultKeyboardinputLen) {
-            UI.keyboardinputReset();
-        } else if (newLen < 1) {
-            // There always have to be some text in the keyboardinput
-            // element with which backspace can interact.
-            UI.keyboardinputReset();
-            // This sometimes causes the keyboard to disappear for a second
-            // but it is required for the android keyboard to recognize that
-            // text has been added to the field
-            event.target.blur();
-            // This has to be ran outside of the input handler in order to work
-            setTimeout(event.target.focus.bind(event.target), 0);
-        } else {
-            UI.lastKeyboardinput = newValue;
-        }
+        UI.virtualKeyboardInput.input(event);
     },
 
 /* ------^-------

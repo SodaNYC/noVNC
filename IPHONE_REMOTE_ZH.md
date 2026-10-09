@@ -609,20 +609,13 @@ $HOME
 
 ---
 
-### Refresh Screen：画面卡住时手动请求完整重绘
+### iPhone 中文输入法
 
-左侧工具栏新增 **Refresh Screen**（圆形刷新箭头）按钮。它不是浏览器刷新，也不会重新建立 VNC 连接：
+iOS 中文拼音输入先产生拼音候选（composition），选字确认后才生成最终文本。虚拟键盘现在只发送已确认的文本，不再把每次拼音候选变化作为远端文字和 Backspace 发送；可避免重复字母和误删已经输入的汉字。
 
-```text
-点击 Refresh Screen
-→ 向当前 VNC Server 发送一次非增量 framebuffer update request
-→ 请求重新发送整个 framebuffer
-→ 当前连接、认证、缩放比例、Pan / Left Drag 状态全部保持不变
-```
+普通文本统一由 textarea 的 input 事件发送，keydown 仅处理方向键、修饰键和快捷键等控制操作。换行使用 VNC Return，补充 Unicode 码点处理。此调整只作用于 iPhone/触屏虚拟键盘，不改变桌面画布键盘与 Extra Keys。
 
-适合“连接看起来还在，但远程画面停止更新 / 卡在旧画面”的情况。按钮只在 VNC 已连接时显示，View Only 模式下也可以使用。
-
-如果点击后仍完全没有新画面，通常说明问题已经不是单纯漏掉 framebuffer update，而可能是 WebSocket 或 Apple Screen Sharing 会话本身失去响应；这时再使用断线重连。
+**注意：** Apple Screen Sharing 对直接 Unicode 键盘输入的兼容性仍取决于 VNC 服务端。如果部分中文字符无法正常进入远端应用，仍可通过 Clipboard → Paste to Mac 可靠粘贴。
 
 ---
 

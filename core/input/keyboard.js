@@ -10,13 +10,21 @@ import * as KeyboardUtil from "./util.js";
 import KeyTable from "./keysym.js";
 import * as browser from "../util/browser.js";
 
+// Textarea input events are the only source of printable characters.
+const TEXT_INPUT_CONTROL_KEYS = new Set([
+    "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+    "Home", "End", "PageUp", "PageDown", "Escape", "Tab",
+    "Shift", "Control", "Alt", "Meta", "CapsLock",
+]);
+
 //
 // Keyboard event handler
 //
 
 export default class Keyboard {
-    constructor(target) {
+    constructor(target, options={}) {
         this._target = target || null;
+        this._textInputMode = options.textInput === true;
 
         this._keyDownList = {};         // List of depressed keys
                                         // (even if they are happy)
@@ -85,6 +93,15 @@ export default class Keyboard {
     }
 
     _handleKeyDown(e) {
+        // Do not forward preedit keys or ordinary text twice: iOS sends
+        // keydown and input for the same virtual keyboard gesture.
+        if (this._textInputMode &&
+            (e.isComposing || e.keyCode === 229 ||
+             (!(e.ctrlKey || e.altKey || e.metaKey) &&
+              !TEXT_INPUT_CONTROL_KEYS.has(e.key)))) {
+            return;
+        }
+
         const code = this._getKeyCode(e);
         let keysym = KeyboardUtil.getKeysym(e);
         let numlock = e.getModifierState('NumLock');
@@ -212,9 +229,12 @@ export default class Keyboard {
     }
 
     _handleKeyUp(e) {
-        stopEvent(e);
-
         const code = this._getKeyCode(e);
+        if (this._textInputMode && !(code in this._keyDownList)) {
+            return;
+        }
+
+        stopEvent(e);
 
         // We can't get a release in the middle of an AltGr sequence, so
         // abort that detection
