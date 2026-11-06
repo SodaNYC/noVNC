@@ -16,6 +16,7 @@ import KeyTable from "../core/input/keysym.js";
 import keysyms from "../core/input/keysymdef.js";
 import Keyboard from "../core/input/keyboard.js";
 import VirtualKeyboardInput from "./virtualkeyboard.js";
+import IOSResumeRecovery from "./ios-resume-recovery.js";
 import RFB from "../core/rfb.js";
 import * as WebUtil from "./webutil.js";
 
@@ -50,6 +51,9 @@ const UI = {
     iosLifecycleSuspended: false,
     iosResumeNeeded: false,
     iosResumeTimer: null,
+    iosResumeRecovery: new IOSResumeRecovery(),
+    iosResumeAuthRetryDelay: null,
+    iosResumeAuthFailureTerminal: false,
 
     macClipboardEventSource: null,
     macClipboardText: null,
@@ -290,6 +294,9 @@ const UI = {
         }
 
         UI.iosLifecycleSuspended = true;
+        UI.iosResumeRecovery.reset();
+        UI.iosResumeAuthRetryDelay = null;
+        UI.iosResumeAuthFailureTerminal = false;
         UI.iosResumeNeeded =
             UI.iosResumeNeeded ||
             UI.connected ||
@@ -330,8 +337,13 @@ const UI = {
 
         UI.inhibitReconnect = false;
 
-        // Give WebKit one task turn after becoming visible so its network
-        // state and layout settle before we create a fresh WebSocket.
+        // Closing the old browser WebSocket does not mean macOS has already
+        // torn down its old Screen Sharing session. Leave a short grace
+        // interval to prevent overlapping sessions and transient ARD rejects.
+        UI.iosResumeRecovery.start();
+
+        // Let both WebKit's network extension and macOS' previous VNC
+        // session settle before opening a new authenticated connection.
         if (UI.iosResumeTimer === null) {
             UI.iosResumeTimer = setTimeout(() => {
                 UI.iosResumeTimer = null;
@@ -346,7 +358,7 @@ const UI = {
                     UI.reconnectPassword,
                     UI.reconnectUsername
                 );
-            }, 100);
+            }, 1000);
         }
     },
 
@@ -1483,6 +1495,7 @@ const UI = {
         }
 
         UI.hideStatus();
+        UI.iosResumeAuthFailureTerminal = false;
 
         UI.closeConnectPanel();
 
@@ -1524,16 +1537,24 @@ const UI = {
             return;
         }
 
-        UI.rfb.addEventListener("connect", UI.connectFinished);
-        UI.rfb.addEventListener("disconnect", UI.disconnectFinished);
-        UI.rfb.addEventListener("serververification", UI.serverVerify);
-        UI.rfb.addEventListener("credentialsrequired", UI.credentials);
-        UI.rfb.addEventListener("securityfailure", UI.securityFailed);
-        UI.rfb.addEventListener("clippingviewport", UI.updateViewDrag);
-        UI.rfb.addEventListener("capabilities", UI.updatePowerButton);
+        // Ignore late callbacks from a WebSocket that has been disposed
+        // during an iOS pagehide/visibilitychange transition.
+        const currentRFB = UI.rfb;
+        const onCurrentRFB = (handler) => (e) => {
+            if (UI.rfb === currentRFB) {
+                handler(e);
+            }
+        };
+        UI.rfb.addEventListener("connect", onCurrentRFB(UI.connectFinished));
+        UI.rfb.addEventListener("disconnect", onCurrentRFB(UI.disconnectFinished));
+        UI.rfb.addEventListener("serververification", onCurrentRFB(UI.serverVerify));
+        UI.rfb.addEventListener("credentialsrequired", onCurrentRFB(UI.credentials));
+        UI.rfb.addEventListener("securityfailure", onCurrentRFB(UI.securityFailed));
+        UI.rfb.addEventListener("clippingviewport", onCurrentRFB(UI.updateViewDrag));
+        UI.rfb.addEventListener("capabilities", onCurrentRFB(UI.updatePowerButton));
 
-        UI.rfb.addEventListener("bell", UI.bell);
-        UI.rfb.addEventListener("desktopname", UI.updateDesktopName);
+        UI.rfb.addEventListener("bell", onCurrentRFB(UI.bell));
+        UI.rfb.addEventListener("desktopname", onCurrentRFB(UI.updateDesktopName));
         UI.rfb.clipViewport = UI.getSetting('view_clip');
         UI.rfb.scaleViewport = UI.getSetting('resize') === 'scale';
         UI.rfb.resizeSession = UI.getSetting('resize') === 'remote';
@@ -1545,6 +1566,8 @@ const UI = {
     },
 
     disconnect() {
+        UI.iosResumeRecovery.reset();
+        UI.iosResumeAuthRetryDelay = null;
         UI.rfb.disconnect();
 
         UI.connected = false;
@@ -1569,6 +1592,8 @@ const UI = {
     },
 
     cancelReconnect() {
+        UI.iosResumeRecovery.reset();
+        UI.iosResumeAuthRetryDelay = null;
         if (UI.reconnectCallback !== null) {
             clearTimeout(UI.reconnectCallback);
             UI.reconnectCallback = null;
@@ -1583,6 +1608,9 @@ const UI = {
     connectFinished(e) {
         UI.connected = true;
         UI.inhibitReconnect = false;
+        UI.iosResumeRecovery.reset();
+        UI.iosResumeAuthRetryDelay = null;
+        UI.iosResumeAuthFailureTerminal = false;
 
         let msg;
         if (UI.getSetting('encrypt')) {
@@ -1612,7 +1640,11 @@ const UI = {
 
         UI.rfb = undefined;
 
-        if (!e.detail.clean) {
+        const resumeAuthDelay = UI.iosResumeAuthRetryDelay;
+        UI.iosResumeAuthRetryDelay = null;
+
+        if (!e.detail.clean && resumeAuthDelay === null &&
+            !UI.iosResumeAuthFailureTerminal) {
             UI.updateVisualState('disconnected');
             if (wasConnected) {
                 UI.showStatus(_("Something went wrong, connection is closed"),
@@ -1630,6 +1662,15 @@ const UI = {
             return;
         }
 
+        // A recent iOS resume can be rejected while the server still has
+        // the previous session. Retry only this exact authorization reason,
+        // with a bounded delay (never an endless password retry loop).
+        if (resumeAuthDelay !== null && !UI.inhibitReconnect) {
+            UI.updateVisualState('reconnecting');
+            UI.reconnectCallback = setTimeout(UI.reconnect, resumeAuthDelay);
+            return;
+        }
+
         // If reconnecting is allowed process it now
         if (UI.getSetting('reconnect', false) === true && !UI.inhibitReconnect) {
             UI.updateVisualState('reconnecting');
@@ -1639,7 +1680,9 @@ const UI = {
             return;
         } else {
             UI.updateVisualState('disconnected');
-            UI.showStatus(_("Disconnected"), 'normal');
+            if (!UI.iosResumeAuthFailureTerminal) {
+                UI.showStatus(_("Disconnected"), 'normal');
+            }
         }
 
         UI.updateBeforeUnload();
@@ -1651,6 +1694,22 @@ const UI = {
     },
 
     securityFailed(e) {
+        const retryDelay = UI.iosResumeRecovery.nextAuthRetryDelay(
+            e.detail.reason
+        );
+        if (retryDelay !== null && retryDelay >= 0) {
+            UI.iosResumeAuthRetryDelay = retryDelay;
+            UI.showStatus(
+                "Mac Screen Sharing is still closing the previous session; retrying...",
+                "warning", 1600
+            );
+            return;
+        }
+        if (retryDelay === -1) {
+            UI.inhibitReconnect = true;
+            UI.iosResumeAuthFailureTerminal = true;
+        }
+
         let msg = "";
         // On security failures we might get a string with a reason
         // directly from the server. Note that we can't control if
@@ -1758,6 +1817,9 @@ const UI = {
         // Clear the input after reading the password
         inputElemPassword.value = "";
 
+        UI.iosResumeRecovery.reset();
+        UI.iosResumeAuthRetryDelay = null;
+        UI.iosResumeAuthFailureTerminal = false;
         UI.rfb.sendCredentials({ username: username, password: password });
         UI.reconnectUsername = username;
         UI.reconnectPassword = password;

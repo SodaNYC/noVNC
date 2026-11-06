@@ -375,8 +375,11 @@ iOS / iPadOS 会主动冻结甚至回收后台网页。为了避免 Safari / Chr
 → 当前页面不再等待 WebSocket close event
 
 重新回到 noVNC
-→ 立即使用当前会话保存的认证信息创建全新的 RFB
-→ 重启 Mac Clipboard EventSource
+→ 等待约 1 秒，让 iMac 屏幕共享服务释放旧会话
+→ 使用当前会话保存的认证信息创建全新的 RFB
+→ 如果服务器短暂返回 Authentication or authorization failure，则最多退避重试 2 次（2.5 秒、6 秒）
+→ 重试仍失败则停止自动认证并显示错误，避免无限尝试密码
+→ 连接成功后重启 Mac Clipboard EventSource
 → 回到当前 iPhone 的 fit-to-screen 视图
 ```
 
