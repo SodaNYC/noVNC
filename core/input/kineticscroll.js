@@ -35,6 +35,8 @@ export default class KineticScroll {
         this._lastMoveAt = 0;
         this._lastMotionAt = 0;
         this._flingStartedAt = 0;
+        this._burstStartAt = -Infinity;
+        this._burstCount = 0;
         this._x = 0;
         this._y = 0;
     }
@@ -97,15 +99,19 @@ export default class KineticScroll {
     }
 
     _drain() {
-        // One gesture callback must never flood the gateway with hundreds
-        // of back-to-back wheel press/release pairs.
-        let count = 0;
+        // Limit across ALL gesture callbacks inside a 16ms window, not
+        // per callback: Safari can deliver many gesturemove events at once.
+        const now = Date.now();
+        if (now - this._burstStartAt >= TICK_MS) {
+            this._burstStartAt = now;
+            this._burstCount = 0;
+        }
         while (Math.abs(this._pending) >= PIXELS_PER_NOTCH &&
-               count < MAX_NOTCHES_PER_TICK) {
+               this._burstCount < MAX_NOTCHES_PER_TICK) {
             const direction = Math.sign(this._pending);
             this._sendWheel(direction, this._x, this._y);
             this._pending -= direction * PIXELS_PER_NOTCH;
-            count++;
+            this._burstCount++;
         }
     }
 

@@ -27,10 +27,21 @@ describe('Kinetic touch scrolling', function () {
         expect(send.callCount).to.be.at.most(8);
     });
 
+    it('caps total wheel events across multiple rapid browser callbacks', function () {
+        scroll.start(10, 20);
+        scroll.move(35, 10, 20);
+        scroll.move(35, 10, 20);
+        scroll.move(35, 10, 20);
+        expect(send.callCount).to.be.at.most(3);
+        clock.tick(16);
+        expect(send.callCount).to.be.at.most(6);
+    });
+
     it('preserves up/down direction and abandons the old backlog on reversal', function () {
         scroll.start(1, 2);
         scroll.move(30, 1, 2);
         expect(send.firstCall).to.have.been.calledWith(1, 1, 2);
+        clock.tick(16);
         scroll.move(-30, 1, 2);
         expect(send.lastCall).to.have.been.calledWith(-1, 1, 2);
     });
