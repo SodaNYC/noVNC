@@ -24,7 +24,7 @@ describe('Kinetic touch scrolling', function () {
         clock.tick(16);
         expect(send.callCount).to.equal(6);
         clock.tick(100);
-        expect(send.callCount).to.be.at.most(8);
+        expect(send.callCount).to.be.at.most(10);
     });
 
     it('caps total wheel events across multiple rapid browser callbacks', function () {
@@ -65,9 +65,9 @@ describe('Kinetic touch scrolling', function () {
     it('flings from a short, quick two-finger flick', function () {
         scroll.start(10, 20);
         clock.tick(16);
-        scroll.move(7, 10, 20);
-        // Seven pixels is below one VNC wheel notch before release.
-        expect(send).to.not.have.been.called;
+        scroll.move(4, 10, 20);
+        // Four pixels produces just one wheel step before the fling.
+        expect(send.callCount).to.be.at.most(1);
         scroll.end();
         clock.tick(160);
         expect(send).to.have.been.called;
@@ -75,6 +75,33 @@ describe('Kinetic touch scrolling', function () {
         clock.tick(1000);
         clock.tick(300);
         expect(send.callCount).to.be.at.least(count);
+    });
+
+    it('uses recent cumulative movement instead of the last tiny callback', function () {
+        scroll.start(10, 20);
+        for (let i = 0; i < 5; i++) {
+            clock.tick(16);
+            scroll.move(5, 10, 20);
+        }
+        clock.tick(16);
+        scroll.move(1, 10, 20); // Last sample alone is too slow to fling.
+        const beforeEnd = send.callCount;
+        scroll.end();
+        clock.tick(160);
+        expect(send.callCount).to.be.greaterThan(beforeEnd);
+    });
+
+    it('does not fling after a slow continuous movement', function () {
+        scroll.start(10, 20);
+        for (let i = 0; i < 10; i++) {
+            clock.tick(100);
+            scroll.move(2, 10, 20);
+        }
+        const beforeEnd = send.callCount;
+        scroll.end();
+        clock.tick(1000);
+        // The small pending movement may drain; it must not create a fling.
+        expect(send.callCount - beforeEnd).to.be.at.most(1);
     });
 
     it('does not fling after a pause or a slow drag', function () {

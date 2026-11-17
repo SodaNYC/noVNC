@@ -19,7 +19,8 @@ import Inflator from "./inflator.js";
 import Deflator from "./deflator.js";
 import Keyboard from "./input/keyboard.js";
 import GestureHandler from "./input/gesturehandler.js";
-import KineticScroll from "./input/kineticscroll.js";
+// Versioned URL avoids stale-while-revalidate caching of the kinetic module.
+import KineticScroll from "./input/kineticscroll.js?v=20261118b";
 import Cursor from "./util/cursor.js";
 import Websock from "./websock.js";
 import KeyTable from "./input/keysym.js";
