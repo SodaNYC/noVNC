@@ -203,7 +203,6 @@ export default class RFB extends EventTargetMixin {
         this._gestureFirstDoubleTapEv = null;
         this._gestureLastMagnitudeX = 0;
         this._gestureLastMagnitudeY = 0;
-        this._singleScrollLastY = 0;
         this._twoDragAxis = null;
         this._spaceSwipeTriggered = false;
 
@@ -313,7 +312,6 @@ export default class RFB extends EventTargetMixin {
         // ===== PROPERTIES =====
 
         this.dragViewport = false;
-        this.oneFingerScroll = false;
         this.focusOnClick = true;
 
         this._viewOnly = false;
@@ -1509,12 +1507,6 @@ export default class RFB extends EventTargetMixin {
                         this._sendMacFullscreenToggle();
                         break;
                     case 'drag':
-                        if (this.oneFingerScroll) {
-                            this._singleScrollLastY = ev.detail.clientY;
-                            this._fakeMouseMove(ev, pos.x, pos.y);
-                            this._kineticScroll.start(pos.x, pos.y);
-                            break;
-                        }
                         if (this.dragViewport) {
                             this._viewportHasMoved = false;
                             this._viewportDragging = true;
@@ -1573,14 +1565,6 @@ export default class RFB extends EventTargetMixin {
                         break;
                     case 'drag':
                     case 'longpress':
-                        if (ev.detail.type === 'drag' && this.oneFingerScroll) {
-                            this._kineticScroll.move(
-                                ev.detail.clientY - this._singleScrollLastY,
-                                pos.x, pos.y
-                            );
-                            this._singleScrollLastY = ev.detail.clientY;
-                            break;
-                        }
                         if (this.dragViewport) {
                             this._viewportDragging = true;
                             const deltaX = this._viewportDragPos.x - pos.x;
@@ -1682,9 +1666,7 @@ export default class RFB extends EventTargetMixin {
                         this._gestureZoomStartMagnitude = 0;
                         break;
                     case 'drag':
-                        if (this.oneFingerScroll) {
-                            this._kineticScroll.end();
-                        } else if (this.dragViewport) {
+                        if (this.dragViewport) {
                             this._viewportDragging = false;
                         } else {
                             this._fakeMouseMove(ev, pos.x, pos.y);

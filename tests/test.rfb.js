@@ -4625,44 +4625,6 @@ describe('Remote Frame Buffer protocol client', function () {
                 });
             });
 
-            describe('One-finger scroll mode', function () {
-                it('sends wheel events instead of holding the left mouse button', function () {
-                    client.oneFingerScroll = true;
-                    gestureStart('drag', 30, 50, client);
-                    pointerEvent.resetHistory();
-
-                    gestureMove('drag', 30, 80, client);
-
-                    const clicks = pointerEvent.getCalls()
-                        .filter(call => call.args[3] !== 0);
-                    expect(clicks.length).to.be.greaterThan(0);
-                    for (const click of clicks) {
-                        expect(click.args[3]).to.equal(0x8);
-                    }
-                    gestureEnd('drag', 30, 80, client);
-                    client._kineticScroll.stop();
-                });
-
-                it('keeps the existing drag behavior when the new mode is off', function () {
-                    client.oneFingerScroll = false;
-                    gestureStart('drag', 30, 50, client);
-                    expect(pointerEvent.getCalls().some(
-                        call => call.args[3] === 0x1)).to.equal(true);
-                    gestureEnd('drag', 30, 50, client);
-                });
-
-                it('stops kinetic scrolling when disconnected', function () {
-                    client.oneFingerScroll = true;
-                    gestureStart('drag', 30, 50, client);
-                    gestureMove('drag', 30, 130, client);
-                    gestureEnd('drag', 30, 130, client);
-                    client.disconnect();
-                    const count = pointerEvent.callCount;
-                    clock.tick(2000);
-                    expect(pointerEvent.callCount).to.equal(count);
-                });
-            });
-
             describe('Gesture pinch', function () {
                 it('should apply local zoom instead of remote Ctrl+scroll', function () {
                     const zoom = sinon.stub(client, '_applyLocalZoom');

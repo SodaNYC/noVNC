@@ -62,6 +62,21 @@ describe('Kinetic touch scrolling', function () {
         expect(send.callCount).to.equal(stoppedCount);
     });
 
+    it('flings from a short, quick two-finger flick', function () {
+        scroll.start(10, 20);
+        clock.tick(16);
+        scroll.move(7, 10, 20);
+        // Seven pixels is below one VNC wheel notch before release.
+        expect(send).to.not.have.been.called;
+        scroll.end();
+        clock.tick(160);
+        expect(send).to.have.been.called;
+        const count = send.callCount;
+        clock.tick(1000);
+        clock.tick(300);
+        expect(send.callCount).to.be.at.least(count);
+    });
+
     it('does not fling after a pause or a slow drag', function () {
         scroll.start(10, 20);
         clock.tick(100);
