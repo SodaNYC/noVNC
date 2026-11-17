@@ -36,7 +36,7 @@ describe('Kinetic touch scrolling', function () {
         expect(send.callCount).to.equal(3);
         clock.tick(320);
         expect(send.callCount).to.be.greaterThan(30);
-        expect(send.callCount).to.be.at.most(39);
+        expect(send.callCount).to.be.at.most(63);
         // No fling from a stale gesture, so it must settle.
         scroll.end();
         const total = send.callCount;

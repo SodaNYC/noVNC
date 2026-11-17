@@ -8,12 +8,12 @@
 // wheel stream, sampling movement across a short time window rather than
 // relying on the final tiny touchmove event (iOS reports touches separately).
 const PIXELS_PER_NOTCH = 6;
-const TOUCH_GAIN = 3.2;
+const TOUCH_GAIN = 6.4;
 const TICK_MS = 16;
 const MAX_NOTCHES_PER_TICK = 3;
 // Preserve more travel from a fast swipe instead of discarding it.
-// 36 notches drain in about 192ms at the existing 3/16ms rate limit.
-const MAX_PENDING = PIXELS_PER_NOTCH * 36;
+// 72 notches drain in about 384ms at the existing 3/16ms rate limit.
+const MAX_PENDING = PIXELS_PER_NOTCH * 72;
 const VELOCITY_WINDOW_MS = 130;
 const MAX_SAMPLES = 48;
 const MIN_FLING_DISTANCE = 7;
