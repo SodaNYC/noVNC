@@ -91,6 +91,21 @@ describe('Kinetic touch scrolling', function () {
         expect(send.callCount).to.be.greaterThan(beforeEnd);
     });
 
+    it('keeps a fast flick gliding longer without infinite scrolling', function () {
+        scroll.start(10, 20);
+        clock.tick(16);
+        scroll.move(42, 10, 20);
+        scroll.end();
+        clock.tick(350);
+        const midCount = send.callCount;
+        clock.tick(200);
+        expect(send.callCount).to.be.greaterThan(midCount);
+        clock.tick(1300);
+        const finalCount = send.callCount;
+        clock.tick(800);
+        expect(send.callCount).to.equal(finalCount);
+    });
+
     it('does not fling after a slow continuous movement', function () {
         scroll.start(10, 20);
         for (let i = 0; i < 10; i++) {

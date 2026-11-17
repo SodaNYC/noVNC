@@ -7,8 +7,8 @@
 // Apple Screen Sharing consumes discrete VNC wheel clicks. Use a bounded
 // wheel stream, sampling movement across a short time window rather than
 // relying on the final tiny touchmove event (iOS reports touches separately).
-const PIXELS_PER_NOTCH = 7;
-const TOUCH_GAIN = 1.8;
+const PIXELS_PER_NOTCH = 6;
+const TOUCH_GAIN = 2.2;
 const TICK_MS = 16;
 const MAX_NOTCHES_PER_TICK = 3;
 const MAX_PENDING = PIXELS_PER_NOTCH * 10;
@@ -17,8 +17,8 @@ const MAX_SAMPLES = 48;
 const MIN_FLING_DISTANCE = 7;
 const MIN_FLING_VELOCITY = 0.15;  // px per ms over recent movement
 const STOP_FLING_VELOCITY = 0.06;
-const FLING_DECAY = 0.90;
-const MAX_FLING_MS = 720;
+const FLING_DECAY = 0.93;
+const MAX_FLING_MS = 900;
 const RECENT_MOVE_MS = 120;
 
 export default class KineticScroll {
