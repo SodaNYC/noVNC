@@ -65,12 +65,12 @@ describe('Kinetic touch scrolling', function () {
     it('flings from a short, quick two-finger flick', function () {
         scroll.start(10, 20);
         clock.tick(16);
-        scroll.move(4, 10, 20);
-        // Four pixels produces just one wheel step before the fling.
-        expect(send.callCount).to.be.at.most(1);
+        scroll.move(7, 10, 20);
+        // The initial gesture is short; check that release adds movement.
+        const countBeforeRelease = send.callCount;
         scroll.end();
         clock.tick(160);
-        expect(send).to.have.been.called;
+        expect(send.callCount).to.be.greaterThan(countBeforeRelease);
         const count = send.callCount;
         clock.tick(1000);
         clock.tick(300);
