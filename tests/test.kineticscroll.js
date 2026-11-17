@@ -73,6 +73,18 @@ describe('Kinetic touch scrolling', function () {
         expect(send.callCount).to.equal(2 * shorterSwipeSteps);
     });
 
+    it('keeps a short fast flick bounded while retaining real swipe distance', function () {
+        scroll.start(10, 20);
+        clock.tick(16);
+        scroll.move(42, 10, 20);
+        scroll.end();
+        clock.tick(6000);
+        // Touch travel is 42*6.4/6=44.8 notches, with at most 120
+        // extra inertia notches regardless of the enlarged 768-step queue.
+        expect(send.callCount).to.be.greaterThan(45);
+        expect(send.callCount).to.be.at.most(165);
+    });
+
     it('cancels a long pending scroll immediately when a new gesture starts', function () {
         scroll.start(10, 20);
         scroll.move(700, 10, 20);

@@ -24,6 +24,9 @@ const MIN_FLING_VELOCITY = 0.15;  // px per ms over recent movement
 const STOP_FLING_VELOCITY = 0.06;
 const FLING_DECAY = 0.93;
 const MAX_FLING_MS = 900;
+// Separate the momentum budget from the *real finger travel* queue:
+// widening the queue must not allow a short flick to coast for seconds.
+const MAX_FLING_ADDED_NOTCHES = 120;
 const RECENT_MOVE_MS = 120;
 
 export default class KineticScroll {
@@ -41,6 +44,7 @@ export default class KineticScroll {
         this._tracking = false;
         this._pending = 0;
         this._velocity = 0;
+        this._flingRemaining = 0;
         this._lastMotionAt = 0;
         this._flingStartedAt = 0;
         this._burstStartAt = -Infinity;
@@ -121,6 +125,8 @@ export default class KineticScroll {
         }
         this._velocity = Math.abs(velocity) >= MIN_FLING_VELOCITY ?
             velocity : 0;
+        this._flingRemaining = this._velocity !== 0 ?
+            PIXELS_PER_NOTCH * MAX_FLING_ADDED_NOTCHES : 0;
         this._flingStartedAt = now;
 
         if (this._velocity !== 0 ||
@@ -163,12 +169,16 @@ export default class KineticScroll {
         this._timer = null;
         if (!this._tracking && this._velocity !== 0) {
             if (Date.now() - this._flingStartedAt >= MAX_FLING_MS ||
-                Math.abs(this._velocity) < STOP_FLING_VELOCITY) {
+                Math.abs(this._velocity) < STOP_FLING_VELOCITY ||
+                this._flingRemaining < PIXELS_PER_NOTCH) {
                 this._velocity = 0;
             } else {
+                const amount = Math.sign(this._velocity) *
+                    Math.min(Math.abs(this._velocity * TICK_MS * TOUCH_GAIN),
+                             this._flingRemaining);
                 this._pending = Math.max(-MAX_PENDING,
-                    Math.min(MAX_PENDING,
-                             this._pending + this._velocity * TICK_MS * TOUCH_GAIN));
+                    Math.min(MAX_PENDING, this._pending + amount));
+                this._flingRemaining -= Math.abs(amount);
                 this._velocity *= FLING_DECAY;
             }
         }
