@@ -4531,6 +4531,26 @@ describe('Remote Frame Buffer protocol client', function () {
                     expect(keyEvent).to.not.have.been.called;
                 });
 
+                it('adds a Quartz fling after a vertical twodrag if available', function () {
+                    const post = sinon.stub(client, '_postNativeScroll');
+                    client.nativeScrollAvailable = true;
+                    gestureStart('twodrag', 20, 40, client, 0, 0);
+                    gestureMove('twodrag', 20, 40, client, 0, 150);
+                    gestureEnd('twodrag', 20, 40, client, 0, 150);
+                    expect(post).to.have.been.calledWith({ cancel: true });
+                    expect(post).to.have.been.calledWith({ pixels: 1350 });
+                });
+
+                it('keeps horizontal Space switching free of Quartz flings', function () {
+                    const post = sinon.stub(client, '_postNativeScroll');
+                    client.nativeScrollAvailable = true;
+                    gestureStart('twodrag', 20, 40, client, 0, 0);
+                    gestureMove('twodrag', 20, 40, client, 100, 0);
+                    gestureEnd('twodrag', 20, 40, client, 100, 0);
+                    expect(post).to.have.been.calledOnce;
+                    expect(post).to.have.been.calledWith({ cancel: true });
+                });
+
                 it('should switch macOS Spaces on a right twodrag', function () {
                     gestureStart('twodrag', 20, 40, client, 0, 0);
                     pointerEvent.resetHistory();

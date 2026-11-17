@@ -1562,6 +1562,21 @@ const UI = {
         UI.rfb.compressionLevel = parseInt(UI.getSetting('compression'));
         UI.rfb.showDotCursor = UI.getSetting('show_dot');
 
+        // Optional Mac Quartz pixel scroll: no extra UI or gesture.
+        // Existing VNC scrolling stays active if gateway lacks permission.
+        if (isIOS() && window.location.protocol === 'https:') {
+            fetch('/api/native-scroll', {
+                credentials: 'same-origin',
+                cache: 'no-store',
+            }).then(response => response.ok ? response.json() : null)
+                .then(capability => {
+                    if (UI.rfb === currentRFB &&
+                        capability && capability.available === true) {
+                        currentRFB.nativeScrollAvailable = true;
+                    }
+                }).catch(() => {});
+        }
+
         UI.updateViewOnly(); // requires UI.rfb
     },
 

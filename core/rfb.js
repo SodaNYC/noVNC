@@ -205,6 +205,8 @@ export default class RFB extends EventTargetMixin {
         this._gestureLastMagnitudeX = 0;
         this._gestureLastMagnitudeY = 0;
         this._twoDragAxis = null;
+        this.nativeScrollAvailable = false;
+        this._nativeScrollRequest = Promise.resolve();
         this._spaceSwipeTriggered = false;
 
         // Local pinch zoom state
@@ -1494,6 +1496,10 @@ export default class RFB extends EventTargetMixin {
         if (ev.type === 'gesturestart') {
             // Any new touch interrupts the previous kinetic scroll.
             this._kineticScroll.stop();
+            if (this.nativeScrollAvailable) {
+                // Cancel any remaining Quartz inertia on the Mac as well.
+                this._postNativeScroll({ cancel: true });
+            }
         }
         switch (ev.type) {
             case 'gesturestart':
@@ -1656,7 +1662,15 @@ export default class RFB extends EventTargetMixin {
                         break;
                     case 'twodrag':
                         if (this._twoDragAxis === 'vertical') {
+                            // Preserve VNC scroll while dragging, then add a
+                            // longer Mac-native pixel fling after release.
                             this._kineticScroll.end();
+                            if (this.nativeScrollAvailable &&
+                                Math.abs(this._gestureLastMagnitudeY) >= 15) {
+                                const pixels = Math.max(-3200, Math.min(3200,
+                                    Math.round(this._gestureLastMagnitudeY * 9)));
+                                this._postNativeScroll({ pixels });
+                            }
                         } else {
                             this._kineticScroll.stop();
                         }
@@ -1697,6 +1711,30 @@ export default class RFB extends EventTargetMixin {
                 }
                 break;
         }
+    }
+
+    _postNativeScroll(body) {
+        // Serialized POSTs ensure cancellation cannot overtake an older
+        // fling in transit. Missing or unauthorized gateways fall back
+        // to existing VNC scrolling.
+        this._nativeScrollRequest = this._nativeScrollRequest.then(() =>
+            fetch('/api/native-scroll', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-noVNC-Native-Scroll': '1',
+                },
+                credentials: 'same-origin',
+                cache: 'no-store',
+                body: JSON.stringify(body),
+            })
+        ).then(response => {
+            if (!response.ok) {
+                this.nativeScrollAvailable = false;
+            }
+        }).catch(() => {
+            this.nativeScrollAvailable = false;
+        });
     }
 
     _flushMouseMoveTimer(x, y) {
