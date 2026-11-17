@@ -62,6 +62,7 @@ const UI = {
     // Preferred interaction mode whenever the viewport is clipped.
     // "pan" is the initial default; explicit user choice survives pinch zoom.
     viewDragMode: "pan",
+    oneFingerScrollMode: false,
 
     async start(options={}) {
         UI.customSettings = options.settings || {};
@@ -398,6 +399,8 @@ const UI = {
     addTouchSpecificHandlers() {
         document.getElementById("noVNC_keyboard_button")
             .addEventListener('click', UI.toggleVirtualKeyboard);
+        document.getElementById("noVNC_one_finger_scroll_button")
+            .addEventListener('click', UI.toggleOneFingerScroll);
 
         const keyboardInput = document.getElementById('noVNC_keyboardinput');
         // Printable keys are handled by the input event, not keydown too.
@@ -604,6 +607,7 @@ const UI = {
 
         if (UI.connected) {
             UI.updateViewClip();
+            UI.updateOneFingerScroll();
 
             UI.disableSetting('encrypt');
             UI.disableSetting('shared');
@@ -1561,6 +1565,7 @@ const UI = {
         UI.rfb.qualityLevel = parseInt(UI.getSetting('quality'));
         UI.rfb.compressionLevel = parseInt(UI.getSetting('compression'));
         UI.rfb.showDotCursor = UI.getSetting('show_dot');
+        UI.rfb.oneFingerScroll = UI.oneFingerScrollMode;
 
         UI.updateViewOnly(); // requires UI.rfb
     },
@@ -1938,6 +1943,38 @@ const UI = {
  * ==============
  *    VIEWDRAG
  * ------v------*/
+
+    toggleOneFingerScroll() {
+        if (!UI.connected || !UI.rfb) return;
+
+        UI.oneFingerScrollMode = !UI.oneFingerScrollMode;
+        UI.updateOneFingerScroll();
+        UI.showStatus(
+            UI.oneFingerScrollMode ?
+                "One-finger scroll (momentum enabled)" :
+                "One-finger pointer / pan mode",
+            "normal",
+            1800
+        );
+    },
+
+    updateOneFingerScroll() {
+        const button = document.getElementById(
+            "noVNC_one_finger_scroll_button"
+        );
+        button.classList.toggle("noVNC_selected", UI.oneFingerScrollMode);
+        button.setAttribute("aria-pressed", String(UI.oneFingerScrollMode));
+        button.title = UI.oneFingerScrollMode ?
+            "One-finger scrolling ON — tap for pointer / pan" :
+            "One-finger scrolling OFF — tap for momentum scrolling";
+
+        if (UI.rfb) {
+            UI.rfb.oneFingerScroll = UI.oneFingerScrollMode;
+            if (!UI.oneFingerScrollMode) {
+                UI.rfb._kineticScroll.stop();
+            }
+        }
+    },
 
     toggleViewDrag() {
         if (!UI.rfb ||

@@ -19,6 +19,7 @@ import Inflator from "./inflator.js";
 import Deflator from "./deflator.js";
 import Keyboard from "./input/keyboard.js";
 import GestureHandler from "./input/gesturehandler.js";
+import KineticScroll from "./input/kineticscroll.js";
 import Cursor from "./util/cursor.js";
 import Websock from "./websock.js";
 import KeyTable from "./input/keysym.js";
@@ -50,7 +51,6 @@ const WHEEL_STEP = 50; // Pixels needed for one step
 const WHEEL_LINE_HEIGHT = 19; // Assumed pixels for one line step
 
 // Gesture thresholds
-const GESTURE_SCRLSENS = 2;
 const VIEWPORT_DRAG_SENS = 2.2;
 const SPACE_SWIPE_THRESHOLD = 90;
 const SPACE_SWIPE_AXIS_RATIO = 1.4;
@@ -203,6 +203,7 @@ export default class RFB extends EventTargetMixin {
         this._gestureFirstDoubleTapEv = null;
         this._gestureLastMagnitudeX = 0;
         this._gestureLastMagnitudeY = 0;
+        this._singleScrollLastY = 0;
         this._twoDragAxis = null;
         this._spaceSwipeTriggered = false;
 
@@ -287,6 +288,12 @@ export default class RFB extends EventTargetMixin {
         this._remoteNumLock = null;
 
         this._gestures = new GestureHandler();
+        this._kineticScroll = new KineticScroll((direction, x, y) => {
+            // Positive touch movement scrolls up (VNC wheel button 4).
+            const mask = direction > 0 ? 0x8 : 0x10;
+            this._handleMouseButton(x, y, mask);
+            this._handleMouseButton(x, y, 0);
+        });
 
         this._sock = new Websock();
         this._sock.on('open', this._socketOpen.bind(this));
@@ -306,6 +313,7 @@ export default class RFB extends EventTargetMixin {
         // ===== PROPERTIES =====
 
         this.dragViewport = false;
+        this.oneFingerScroll = false;
         this.focusOnClick = true;
 
         this._viewOnly = false;
@@ -451,6 +459,7 @@ export default class RFB extends EventTargetMixin {
             return;
         }
         this._disposed = true;
+        this._kineticScroll.stop();
 
         // A normal disconnect waits for the WebSocket close event before the
         // UI releases its RFB reference. iOS can suspend the page before that
@@ -659,6 +668,7 @@ export default class RFB extends EventTargetMixin {
 
     _disconnect() {
         Log.Debug(">> RFB.disconnect");
+        this._kineticScroll.stop();
         this._cursor.detach();
         this._canvas.removeEventListener("gesturestart", this._eventHandlers.handleGesture);
         this._canvas.removeEventListener("gesturemove", this._eventHandlers.handleGesture);
@@ -1482,6 +1492,10 @@ export default class RFB extends EventTargetMixin {
 
         let pos = clientToElement(ev.detail.clientX, ev.detail.clientY,
                                   this._canvas);
+        if (ev.type === 'gesturestart') {
+            // Any new touch interrupts the previous kinetic scroll.
+            this._kineticScroll.stop();
+        }
         switch (ev.type) {
             case 'gesturestart':
                 switch (ev.detail.type) {
@@ -1495,6 +1509,12 @@ export default class RFB extends EventTargetMixin {
                         this._sendMacFullscreenToggle();
                         break;
                     case 'drag':
+                        if (this.oneFingerScroll) {
+                            this._singleScrollLastY = ev.detail.clientY;
+                            this._fakeMouseMove(ev, pos.x, pos.y);
+                            this._kineticScroll.start(pos.x, pos.y);
+                            break;
+                        }
                         if (this.dragViewport) {
                             this._viewportHasMoved = false;
                             this._viewportDragging = true;
@@ -1523,6 +1543,7 @@ export default class RFB extends EventTargetMixin {
                         this._spaceSwipeTriggered = false;
 
                         this._fakeMouseMove(ev, pos.x, pos.y);
+                        this._kineticScroll.start(pos.x, pos.y);
                         break;
                     case 'pinch':
                         this._gestureZoomStartMagnitude =
@@ -1552,6 +1573,14 @@ export default class RFB extends EventTargetMixin {
                         break;
                     case 'drag':
                     case 'longpress':
+                        if (ev.detail.type === 'drag' && this.oneFingerScroll) {
+                            this._kineticScroll.move(
+                                ev.detail.clientY - this._singleScrollLastY,
+                                pos.x, pos.y
+                            );
+                            this._singleScrollLastY = ev.detail.clientY;
+                            break;
+                        }
                         if (this.dragViewport) {
                             this._viewportDragging = true;
                             const deltaX = this._viewportDragPos.x - pos.x;
@@ -1601,16 +1630,11 @@ export default class RFB extends EventTargetMixin {
                             break;
                         }
 
-                        while ((ev.detail.magnitudeY - this._gestureLastMagnitudeY) > GESTURE_SCRLSENS) {
-                            this._handleMouseButton(pos.x, pos.y, 0x8);
-                            this._handleMouseButton(pos.x, pos.y, 0x0);
-                            this._gestureLastMagnitudeY += GESTURE_SCRLSENS;
-                        }
-                        while ((ev.detail.magnitudeY - this._gestureLastMagnitudeY) < -GESTURE_SCRLSENS) {
-                            this._handleMouseButton(pos.x, pos.y, 0x10);
-                            this._handleMouseButton(pos.x, pos.y, 0x0);
-                            this._gestureLastMagnitudeY -= GESTURE_SCRLSENS;
-                        }
+                        this._kineticScroll.move(
+                            moveY - this._gestureLastMagnitudeY,
+                            pos.x, pos.y
+                        );
+                        this._gestureLastMagnitudeY = moveY;
                         break;
                     }
                     case 'pinch':
@@ -1646,6 +1670,11 @@ export default class RFB extends EventTargetMixin {
                     case 'threetap':
                         break;
                     case 'twodrag':
+                        if (this._twoDragAxis === 'vertical') {
+                            this._kineticScroll.end();
+                        } else {
+                            this._kineticScroll.stop();
+                        }
                         this._twoDragAxis = null;
                         this._spaceSwipeTriggered = false;
                         break;
@@ -1653,7 +1682,9 @@ export default class RFB extends EventTargetMixin {
                         this._gestureZoomStartMagnitude = 0;
                         break;
                     case 'drag':
-                        if (this.dragViewport) {
+                        if (this.oneFingerScroll) {
+                            this._kineticScroll.end();
+                        } else if (this.dragViewport) {
                             this._viewportDragging = false;
                         } else {
                             this._fakeMouseMove(ev, pos.x, pos.y);
