@@ -24,7 +24,24 @@ describe('Kinetic touch scrolling', function () {
         clock.tick(16);
         expect(send.callCount).to.equal(6);
         clock.tick(100);
-        expect(send.callCount).to.be.at.most(10);
+        // The extended queue retains more distance, but the emission
+        // rate is still capped to 3 notches per 16ms interval.
+        expect(send.callCount).to.be.greaterThan(10);
+        expect(send.callCount).to.be.at.most(24);
+    });
+
+    it('preserves a long swipe instead of silently truncating after ten notches', function () {
+        scroll.start(10, 20);
+        scroll.move(200, 10, 20);
+        expect(send.callCount).to.equal(3);
+        clock.tick(320);
+        expect(send.callCount).to.be.greaterThan(30);
+        expect(send.callCount).to.be.at.most(39);
+        // No fling from a stale gesture, so it must settle.
+        scroll.end();
+        const total = send.callCount;
+        clock.tick(1200);
+        expect(send.callCount).to.equal(total);
     });
 
     it('caps total wheel events across multiple rapid browser callbacks', function () {
