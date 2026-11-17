@@ -11,9 +11,12 @@ const PIXELS_PER_NOTCH = 6;
 const TOUCH_GAIN = 6.4;
 const TICK_MS = 16;
 const MAX_NOTCHES_PER_TICK = 3;
-// Preserve more travel from a fast swipe instead of discarding it.
-// 72 notches drain in about 384ms at the existing 3/16ms rate limit.
-const MAX_PENDING = PIXELS_PER_NOTCH * 72;
+// A normal full-screen swipe can represent hundreds of wheel notches at
+// high sensitivity. The former 72-notch cap caused different TOUCH_GAIN
+// values to produce the same output once the queue saturated.
+// Keep a generous, finite safety cap (768 notches, ~4.1s worst-case drain)
+// while preserving all ordinary full-screen swipe input.
+const MAX_PENDING = PIXELS_PER_NOTCH * 768;
 const VELOCITY_WINDOW_MS = 130;
 const MAX_SAMPLES = 48;
 const MIN_FLING_DISTANCE = 7;

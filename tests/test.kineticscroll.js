@@ -44,6 +44,45 @@ describe('Kinetic touch scrolling', function () {
         expect(send.callCount).to.equal(total);
     });
 
+    it('does not saturate at 72 notches for a full-screen swipe', function () {
+        scroll.start(10, 20);
+        scroll.move(300, 10, 20);
+        // Avoid inertia to measure the actual input-to-wheel conversion.
+        clock.tick(150);
+        scroll.end();
+        clock.tick(5000);
+        expect(send.callCount).to.equal(320); // 300 * 6.4 / 6
+    });
+
+    it('scales emitted wheel travel with swipe distance rather than clipping', function () {
+        scroll.start(10, 20);
+        scroll.move(150, 10, 20);
+        clock.tick(150);
+        scroll.end();
+        clock.tick(5000);
+        const shorterSwipeSteps = send.callCount;
+
+        send.resetHistory();
+        scroll.start(10, 20);
+        scroll.move(300, 10, 20);
+        clock.tick(150);
+        scroll.end();
+        clock.tick(5000);
+
+        expect(shorterSwipeSteps).to.equal(160);
+        expect(send.callCount).to.equal(2 * shorterSwipeSteps);
+    });
+
+    it('cancels a long pending scroll immediately when a new gesture starts', function () {
+        scroll.start(10, 20);
+        scroll.move(700, 10, 20);
+        clock.tick(32);
+        scroll.start(10, 20);
+        const before = send.callCount;
+        clock.tick(6000);
+        expect(send.callCount).to.equal(before);
+    });
+
     it('caps total wheel events across multiple rapid browser callbacks', function () {
         scroll.start(10, 20);
         scroll.move(35, 10, 20);
